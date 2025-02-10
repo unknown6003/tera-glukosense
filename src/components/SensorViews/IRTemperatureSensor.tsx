@@ -30,35 +30,25 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { Dimensions, StyleSheet, processColor } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { Switch, View } from '../Themed';
 import SensorPresentation from './SensorPresentation';
 import { IR_TEMPERATURE_SENSOR } from '../../constants/SensorTag';
 import { Text } from '@rneui/themed';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { LineChart } from 'react-native-charts-wrapper';
+import { useEffect, useMemo, useState } from 'react';
+import { LineChart } from 'react-native-chart-kit';
+import { chartConfig, chartStyles } from '../../constants/Charts';
 import bleManager from 'react-native-ble-manager';
 import { getBytes } from '../../hooks/convert';
 import Legend from './Legend';
-import { useSpecificScreenConfigContext } from '../../context/SpecificScreenOptionsContext';
-import Colors from '../../constants/Colors';
 
 interface Props {
   irTemperatureData: { obj: number[]; amb: number[] };
   peripheralId: string;
-  icon: any;
 }
 
-const IRTemperatureSensor: React.FC<Props> = ({ irTemperatureData, peripheralId, icon }) => {
+const IRTemperatureSensor: React.FC<Props> = ({ irTemperatureData, peripheralId }) => {
   const [enable, setEnable] = useState<boolean>(false);
-  const { specificScreenConfig } = useSpecificScreenConfigContext();
-
-  const currentTempUnits = useRef<'F' | 'C'>(specificScreenConfig.tempUnits);
-
-  useEffect(() => {
-    currentTempUnits.current = specificScreenConfig.tempUnits
-  }, [specificScreenConfig.tempUnits]);
-
   useEffect(() => {
     if (enable) {
       let writeBytes = getBytes('1');
@@ -67,7 +57,6 @@ const IRTemperatureSensor: React.FC<Props> = ({ irTemperatureData, peripheralId,
         IR_TEMPERATURE_SENSOR.service,
         IR_TEMPERATURE_SENSOR.notification
       );
-      console.log('start notification')
 
       bleManager
         .write(
@@ -128,88 +117,31 @@ const IRTemperatureSensor: React.FC<Props> = ({ irTemperatureData, peripheralId,
     };
   }, []);
 
-  function getChartData(data: { obj: number[], amb: number[] }) {
-    return {
-      dataSets: [{
-        values: data.amb,
-        label: 'ambience',
-        config: {
-          color: processColor(Colors.blue),
-          drawCircles: false,
-          lineWidth: 1,
-          drawValues: false
-        }
-      },
-      {
-        values: data.obj,
-        label: 'object',
-        config: {
-          color: processColor(Colors.primary),
-          drawCircles: false,
-          lineWidth: 1,
-          drawValues: false
-        }
-      },
-
-      ],
-    }
-  };
-
-  const chartConfig = {
-    yAxis: {
-      left: {
-        drawGridLines: true,
-        drawLabels: true,
-      },
-      right: {
-        enabled: false,
-      },
-    },
-    legend: {
-      enabled: true,
-    },
-    config: {
-      touchEnabled: true,
-      dragEnabled: true,
-      scaleEnabled: true,
-      scaleXEnabled: true,
-      scaleYEnabled: false,
-      pinchZoom: true,
-      doubleTapToZoomEnabled: true
-    },
-    markerConfig: {
-      enabled: true,
-      markerColor: processColor(Colors.lightGray),
-      textColor: processColor('black'),
-      digits: 3,
-    }
-  };
-
   return (
     <View style={styles.container}>
-
-      <SensorPresentation name="IR Temperature" uuid={IR_TEMPERATURE_SENSOR.service} icon={icon} />
+      <SensorPresentation name="IR Temperature" uuid={IR_TEMPERATURE_SENSOR.service} />
       <View style={styles.chartContainer}>
         <View style={styles.switchContainer}>
           <Text style={{ paddingRight: 10 }}>Enable</Text>
           <Switch value={enable} onValueChange={setEnable} />
         </View>
         <LineChart
-          style={styles.chart}
-          data={getChartData(irTemperatureData)}
-          chartDescription={{ text: '' }}
-          xAxis={{
-            granularityEnabled: true,
-            granularity: 1,
-            drawLabels: true,
-            position: 'BOTTOM',
+          data={{
+            datasets: [
+              { data: irTemperatureData.amb, color: (opacity) => `rgba(255,0,0,${opacity})` },
+              { data: irTemperatureData.obj, color: (opacity) => `rgba(0,255,0,${opacity})` },
+            ],
+            legend: ['Ambience', 'Object'],
+            labels: [],
           }}
-          yAxis={chartConfig.yAxis}
-          legend={chartConfig.legend}
-          marker={chartConfig.markerConfig}
-          {...chartConfig.config}
+          width={Dimensions.get('window').width}
+          height={220}
+          withVerticalLabels={false}
+          segments={10}
+          chartConfig={chartConfig}
+          style={chartStyles}
         />
-        <Legend values={[`Ambience: ${lastAmbTempValue}°${currentTempUnits.current}`, `Object: ${lastObjTempValue}°${currentTempUnits.current}`]} />
+        <Legend values={[`Ambience: ${lastAmbTempValue}°C`, `Object: ${lastObjTempValue}°C`]} />
       </View>
     </View>
   );
@@ -223,20 +155,8 @@ const styles = StyleSheet.create({
   chartContainer: {
     flexDirection: 'column',
     paddingVertical: 15,
-    alignItems: 'center',
   },
-  chart: {
-    width: '90%',
-    flex: 1,
-    height: 220,
-    marginBottom: 30
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 25,
-    alignItems: 'center',
-    alignSelf: 'flex-start'
-  },
+  switchContainer: { flexDirection: 'row', paddingHorizontal: 25, alignItems: 'center' },
 });
 
 export default IRTemperatureSensor;

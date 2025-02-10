@@ -42,9 +42,11 @@ interface Props {
   peripheralId: string;
   selectedFormat: string;
   setSelectedFormat: Dispatch<SetStateAction<string>>;
+  setSelectedMode: Dispatch<SetStateAction<string>>;
+  selectedMode: string;
 }
 
-const CharacteristicsList: React.FC<Props> = ({ characteristics, serviceUuid, serviceName, peripheralId, selectedFormat, setSelectedFormat }) => {
+const CharacteristicsList: React.FC<Props> = ({ characteristics, serviceUuid, serviceName, peripheralId, selectedFormat, setSelectedFormat, setSelectedMode, selectedMode }) => {
   return (
     <View>
       {characteristics.map((char, i) => (
@@ -56,6 +58,8 @@ const CharacteristicsList: React.FC<Props> = ({ characteristics, serviceUuid, se
           char={char}
           selectedFormat={selectedFormat}
           setSelectedFormat={setSelectedFormat}
+          setSelectedMode={setSelectedMode}
+          selectedMode={selectedMode}
         />
       ))}
     </View>

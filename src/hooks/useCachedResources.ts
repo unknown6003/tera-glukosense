@@ -54,6 +54,8 @@ export default function useCachedResources() {
           setShowTutorial(false);
         }
 
+        console.log(checkForTutorialSkip);
+
         // Load fonts
         await Font.loadAsync({
           ...FontAwesome.font,

@@ -40,20 +40,12 @@ const initialState: IFilterSortState = {
       enabled: false,
       value: '',
     },
-    address: {
-      enabled: false,
-      value: '',
-    },
     connectable: false,
     rssi: {
       enabled: false,
       value: '-80',
     },
     removeInactiveOutDevices: true,
-    profile: {
-      enabled: false,
-      value: ''
-    }
   },
   sort: {
     app_name: false,

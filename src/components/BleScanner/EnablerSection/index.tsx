@@ -30,7 +30,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from '../../Themed';
 import React, { Dispatch, SetStateAction } from 'react';
 import { Switch } from '../../Themed';
@@ -39,23 +39,20 @@ import Colors from '../../../constants/Colors';
 interface Props {
   scanEnable: boolean;
   setScanEnable: (state: boolean) => void;
-  disabled: boolean
 }
 
-const EnablerSection: React.FC<Props> = ({ scanEnable, setScanEnable, disabled }) => {
-  const { fontScale } = useWindowDimensions();
-
+const EnablerSection: React.FC<Props> = ({ scanEnable, setScanEnable }) => {
   return (
     <View style={[styles.container]}>
       <Text
+        adjustsFontSizeToFit
         numberOfLines={1}
         allowFontScaling
-        adjustsFontSizeToFit={true}
-        style={{ color: Colors.darkGray, fontSize: 18 / fontScale }}
+        style={{ color: Colors.darkGray, fontSize: 18 }}
       >
         Enable BluetoothLE Scan
       </Text>
-      <Switch onValueChange={(value) => setScanEnable(value)} value={scanEnable} disabled={disabled} style={{ opacity: disabled ? 0.2 : 1 }} />
+      <Switch onValueChange={(value) => setScanEnable(value)} value={scanEnable} />
     </View>
   );
 };

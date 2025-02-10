@@ -30,23 +30,21 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { View, StyleSheet, Platform, Alert, Linking, useWindowDimensions, NativeModules, NativeEventEmitter } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Text } from '../../Themed';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { TouchableOpacity } from '../../Themed';
 import Colors from '../../../constants/Colors';
 import { DeviceScreenNavigationProp } from '../../../../types';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Icon } from '@rneui/themed';
 import BleManager from 'react-native-ble-manager';
-import { PeripheralInfo } from 'react-native-ble-manager';
 
 interface Props {
   deviceState: string;
   discover: (peripheralId: string) => void;
   connect: (peripheralId: string) => void;
   hasOadserviceUuid: boolean;
-  peripheralInfo: PeripheralInfo | undefined;
   peripheralId: string;
   isConnected: boolean;
   isBonded: boolean;
@@ -55,76 +53,17 @@ interface Props {
 const DeviceState: React.FC<Props> = ({
   deviceState,
   hasOadserviceUuid,
-  peripheralInfo,
   peripheralId,
   connect,
   ...props
 }) => {
   let navigation = useNavigation<DeviceScreenNavigationProp>();
 
-  const BleManagerModule = NativeModules.BleManager;
-  const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
-
-  const { fontScale } = useWindowDimensions();
   const [isBonded, setIsBonded] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      bleManagerEmitter.addListener('BleManagerPeripheralDidBond', handleNewDeviceBonded);
-    }
-  }, [])
-
-  const showAlert = () =>
-    Alert.alert(
-      'OAD Service',
-      'For OAD process please connect and pair to the device using the iOS\'s Bluetooth interface.',
-      [
-        {
-          text: 'Continue',
-          onPress: () => navigation.navigate('Characteristics', {
-            peripheralInfo: peripheralInfo!,
-            serviceUuid: 'f000ffc0-0451-4000-b000-000000000000'.toLocaleUpperCase(),
-            icon: {
-              type: 'font-awesome-5',
-              iconName: 'download',
-            },
-            serviceName: 'TI OAD',
-          }),
-          style: 'cancel',
-        },
-        {
-          text: 'Go to Bluetooth',
-          onPress: () => Linking.openURL('App-Prefs:Bluetooth'),
-          style: 'destructive',
-        },
-
-      ],
-    );
-
   const openFWUpdateModal = () => {
-    if (Platform.OS === 'ios') {
-      showAlert();
-    }
-    else {
-      navigation.navigate('Characteristics', {
-        peripheralInfo: peripheralInfo!,
-        serviceUuid: 'f000ffc0-0451-4000-b000-000000000000',
-        icon: {
-          type: 'font-awesome-5',
-          iconName: 'download',
-        },
-        serviceName: 'TI OAD',
-      })
-    }
-  }
-
-  const handleNewDeviceBonded = (e: any) => {
-    console.log('New device bonded', e)
-    if (e.id === peripheralId) {
-      setIsBonded(true);
-    }
-
-  }
+    navigation.navigate('FwUpdateServiceModel', { peripheralId: peripheralId });
+  };
 
   const checkIfPeripheripheralIsBonded = async (): Promise<boolean> => {
     if (Platform.OS !== 'android') return false;
@@ -188,7 +127,7 @@ const DeviceState: React.FC<Props> = ({
       )}
       {/* Rediscover devices services feature */}
       <TouchableOpacity onPress={() => connect(peripheralId)}>
-        <Text style={{ fontSize: 15 / fontScale }} >
+        <Text>
           State:{' '}
           <Text style={{ fontWeight: 'bold' }}>
             {deviceState} {showIsBonded}
@@ -204,7 +143,7 @@ const DeviceState: React.FC<Props> = ({
             marginLeft: 'auto',
           }}
         >
-          <Text style={[{ color: Colors.blue, fontSize: 15 / fontScale }]}>Update FW</Text>
+          <Text style={[{ color: Colors.blue }]}>Update FW</Text>
         </TouchableOpacity>
       )}
     </View>

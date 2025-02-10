@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { View } from '../../components/Themed';
+import { TerminalServiceModelScreenProps } from '../../../types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Input } from '@rneui/themed';
 import { FlashList } from '@shopify/flash-list';
@@ -19,8 +20,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import 'react-native-get-random-values';
 import { v4 as uuid4 } from 'uuid';
 import { Buffer } from 'buffer';
-import { convertStringToByteArray } from '../../hooks/convert';
+import * as encoding from 'text-encoding';
 
+interface Props extends TerminalServiceModelScreenProps { }
 
 //Terminal
 const DATASTREAMSERVER_SERV_UUID = 'F000C0C0-0451-4000-B000-000000000000';
@@ -33,14 +35,13 @@ const TerminalItemSeparator = () => {
   return <View style={{ opacity: 0, paddingBottom: 5 }}></View>;
 };
 
-const TerminalServiceModel: React.FC<{ peripheralId: string }> = ({ peripheralId }) => {
-
+const TerminalServiceModel: React.FC<Props> = ({ route }) => {
   const BleManagerModule = NativeModules.BleManager;
   const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
-
+  let { peripheralId } = route.params;
 
   const [terminalMessages, setTerminalMessages] = useState<
-    { message: string; id: string; date: string, length: number, received: boolean }[]
+    { message: string; id: string; date: string }[]
   >([]);
 
   let terminalInputRef = useRef<TextInput | null>(null);
@@ -48,7 +49,7 @@ const TerminalServiceModel: React.FC<{ peripheralId: string }> = ({ peripheralId
 
   let insets = useSafeAreaInsets();
 
-  const flashListRef = useRef(null);
+  let initialFocus = useRef<boolean>(true);
 
   useEffect(() => {
     if (terminalInputRef.current) {
@@ -60,12 +61,16 @@ const TerminalServiceModel: React.FC<{ peripheralId: string }> = ({ peripheralId
     let message = '> ' + terminalInput
     setTerminalMessages((prev) => [
       ...prev,
-      { id: uuid4(), message: message, date: new Date().toTimeString().split(' ')[0], length: terminalInput.length, received: false },
+      { id: uuid4(), message: message, date: new Date().toTimeString().split(' ')[0] },
     ]);
 
-    let writeByteArray = convertStringToByteArray(terminalInput);
+    let hexString = terminalInput.toLocaleLowerCase();
 
-    // @ts-ignore
+    let writeByteArray = Uint8Array.from([]);
+    let utf8Encode = new encoding.TextEncoder();
+    writeByteArray = utf8Encode.encode(terminalInput);
+
+    //@ts-ignore
     let writeBytes = Array.from(writeByteArray);
     BleManager.write(
       peripheralId,
@@ -83,36 +88,69 @@ const TerminalServiceModel: React.FC<{ peripheralId: string }> = ({ peripheralId
     setTerminalInput('');
   };
 
+  // useEffect(() => {
+  //   console.log('enable noti')
+  //   // Termianl notifications
+  //   BleManager.startNotification(
+  //     peripheralId,
+  //     DATASTREAMSERVER_SERV_UUID,
+  //     DATASTREAMSERVER_DATAOUT_UUID
+  //   );
+
+  //   console.log('addListener for BleManagerDidUpdateValueForCharacteristic');
+  //   bleManagerEmitter.addListener(
+  //     'BleManagerDidUpdateValueForCharacteristic',
+  //     ({ value, peripheral, characteristic, service }) => {
+  //       console.log('got noti')
+  //       let hexString = Buffer.from(value).toString('utf8');
+  //       hexString = '< ' + hexString;
+  //       setTerminalMessages((prev) => [
+  //         ...prev,
+  //         { id: uuid4(), message: hexString, date: new Date().toTimeString().split(' ')[0] },
+  //       ]);
+  //     }
+  //   );
+
+  //   return () => {
+  //     console.log('remove all listeners');
+  //     bleManagerEmitter.removeAllListeners('BleManagerDidUpdateValueForCharacteristic');
+
+  //     //Terminal notification
+  //     BleManager.stopNotification(peripheralId, DATASTREAMSERVER_SERV_UUID, DATASTREAMSERVER_DATAIN_UUID);      
+  //   };
+  // }, []);
+
   useFocusEffect(
     useCallback(() => {
       const task = InteractionManager.runAfterInteractions(() => {
+        if (initialFocus.current) {
+          console.log('initial focuse');
+          initialFocus.current = false;
 
-        console.log('enable noti')
-        // Termianl notifications
-        BleManager.startNotification(
-          peripheralId,
-          DATASTREAMSERVER_SERV_UUID,
-          DATASTREAMSERVER_DATAOUT_UUID
-        );
+          console.log('enable noti')
+          // Termianl notifications
+          BleManager.startNotification(
+            peripheralId,
+            DATASTREAMSERVER_SERV_UUID,
+            DATASTREAMSERVER_DATAOUT_UUID
+          );
 
-        console.log('addListener for BleManagerDidUpdateValueForCharacteristic');
-        bleManagerEmitter.addListener(
-          'BleManagerDidUpdateValueForCharacteristic',
-          ({ value, peripheral, characteristic, service }) => {
-            console.log('got noti')
-            let buf = Buffer.from(value);
-            let len = buf.length
-
-            let hexString = buf.toString('utf8');
-
-            hexString = '< ' + hexString;
-            setTerminalMessages((prev) => [
-              ...prev,
-              { id: uuid4(), message: hexString, date: new Date().toTimeString().split(' ')[0], length: len, received: true },
-            ]);
-          })
-
-
+          console.log('addListener for BleManagerDidUpdateValueForCharacteristic');
+          bleManagerEmitter.addListener(
+            'BleManagerDidUpdateValueForCharacteristic',
+            ({ value, peripheral, characteristic, service }) => {
+              console.log('got noti')
+              let hexString = Buffer.from(value).toString('utf8');
+              hexString = '< ' + hexString;
+              setTerminalMessages((prev) => [
+                ...prev,
+                { id: uuid4(), message: hexString, date: new Date().toTimeString().split(' ')[0] },
+              ]);
+            }
+          );
+        } else {
+          console.log('refocuse');
+        }
       });
 
       return () => {
@@ -127,15 +165,12 @@ const TerminalServiceModel: React.FC<{ peripheralId: string }> = ({ peripheralId
   );
 
   useEffect(() => {
-    // useEffect to scroll to the end whenever terminalMessages change
-    if (flashListRef.current) {
-      flashListRef.current.scrollToEnd();
-    }
+    console.log(terminalMessages);
   }, [terminalMessages]);
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={[styles.container, { paddingBottom: insets.bottom }]}
       keyboardVerticalOffset={150}
     >
@@ -144,10 +179,9 @@ const TerminalServiceModel: React.FC<{ peripheralId: string }> = ({ peripheralId
           showsVerticalScrollIndicator={false}
           data={terminalMessages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => <TerminalRenderItem key={index} message={item.message} length={item.length} date={item.date} received={item.received} />}
+          renderItem={({ item }) => <TerminalRenderItem message={item.message} date={item.date} />}
           ItemSeparatorComponent={TerminalItemSeparator}
           estimatedItemSize={100}
-          ref={flashListRef}
         />
       </View>
       <View style={[styles.terminalInput]}>

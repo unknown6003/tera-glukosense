@@ -84,8 +84,8 @@ export const IO_SERVICE = {
 
 //Battery Service
 export const BATTERY_LEVEL = {
-  service: 'f000180f-0451-4000-b000-000000000000',
-  data: 'f0002a19-0451-4000-b000-000000000000',
+  service: '180f',
+  data: '2a19',
 } as const;
 
 //Simple Keys Service
@@ -102,9 +102,4 @@ export const CONNECTION_CONTROL_SERVICE = {
   request_disconnect: 'f000ccc3-0451-4000-b000-000000000000',
 } as const;
 
-// accelerometer service
-export const ACCELEROMETER_SERVICE = {
-  service: 'f000ffa0-0451-4000-b000-000000000000',
-  notification: 'f000ffa5-0451-4000-b000-000000000000',
-} as const;
-
+export const SUPPORTED_SPAECIFIC_SCREEN = ["ti terminal", "ti oad", "temp", "humidity", "barometer", "optical", "movement", "simple keys", "battery", "i/o", "control"] as const;

@@ -39,9 +39,7 @@ import {
   TouchableOpacity,
   InteractionManager,
   ScrollView,
-  RefreshControl,
-  useWindowDimensions,
-  Alert
+  AsyncStorage,
 } from 'react-native';
 import React, { useState, useEffect, useMemo, useContext, useRef, useCallback } from 'react';
 import BleManager, { Peripheral } from 'react-native-ble-manager';
@@ -57,8 +55,6 @@ import Colors from '../../constants/Colors';
 import { getIconByPeripheralInfo } from '../../hooks/uuidToBrand';
 import FontAwesome from "react-native-vector-icons/FontAwesome";
 import RNRestart from 'react-native-restart';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 
 interface Props extends RootTabScreenProps<'ScanTab'> { }
 
@@ -71,9 +67,6 @@ const BleScanner: React.FC<Props> = () => {
   const [scanEnable, setScanEnable] = useState<boolean>(false);
   const [peripherals, setPeripherals] = useState<Peripheral[]>([]);
   const [doSort, setDoSort] = useState<Boolean>(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [bleState, setBleState] = useState<'on' | 'off'>('on');
-  const [sortOption, setSortOption] = useState<'app_name' | 'rssi' | null>(null);
 
   let initialFocus = useRef<boolean>(true);
 
@@ -88,8 +81,6 @@ const BleScanner: React.FC<Props> = () => {
 
   let fsContext = useContext(FilterSortState);
 
-  const { fontScale } = useWindowDimensions();
-
   let removeCheckInterval = 0;
 
   useFocusEffect(
@@ -97,8 +88,6 @@ const BleScanner: React.FC<Props> = () => {
       const task = InteractionManager.runAfterInteractions(() => {
         if (initialFocus.current) {
           console.log('focused');
-          bleManagerEmitter.addListener('BleManagerDidUpdateState', handleUpdateState);
-          BleManager.checkState()
           initialFocus.current = false;
         } else {
           setScanEnable(true);
@@ -107,7 +96,6 @@ const BleScanner: React.FC<Props> = () => {
       requestAndroidPermissions().then(() => {
         handleConnectedAndBondedPeripherals();
       });
-
       return () => {
         console.log('unfocused');
         setScanEnable(false);
@@ -135,27 +123,6 @@ const BleScanner: React.FC<Props> = () => {
       bleManagerEmitter.addListener('BleManagerDisconnectPeripheral', handleDisconnectedPeripheral);
     });
 
-    let checkSort = async () => {
-      try {
-        let rssi = await AsyncStorage.getItem('@rssi');
-        let app_name = await AsyncStorage.getItem('@app_name');
-
-        if (!rssi && !app_name) {
-          throw Error('RSSI Sort did not selected!');
-        }
-        if (rssi) {
-          setSortOption('rssi')
-        }
-        else {
-          setSortOption('app_name')
-        }
-
-      } catch (error) {
-        setSortOption(null);
-      }
-    };
-    checkSort();
-
     return () => {
       console.log('BleScanner: removeAllListeners');
       bleManagerEmitter.removeAllListeners('BleManagerDiscoverPeripheral');
@@ -163,18 +130,6 @@ const BleScanner: React.FC<Props> = () => {
       bleManagerEmitter.removeAllListeners('BleManagerDisconnectPeripheral');
     };
   }, []);
-
-  useEffect(() => {
-    if (fsContext.sort.app_name) {
-      setSortOption('app_name');
-    }
-    else if (fsContext.sort.rssi) {
-      setSortOption('rssi');
-    }
-    else {
-      setSortOption(null);
-    }
-  }, [fsContext.sort])
 
   useEffect(() => {
     console.log('useEffect [scanEnable]');
@@ -193,40 +148,24 @@ const BleScanner: React.FC<Props> = () => {
       bleManagerEmitter.addListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
       bleManagerEmitter.addListener('BleManagerDisconnectPeripheral', handleDisconnectedPeripheral);
 
+      const updatePeripheralView = () => {
+        setPeripherals((prev) => [...prev]);
+
+        for (let pIdx = 0; pIdx < scannedPeriphs.current.length; pIdx++) {
+          if (scannedPeriphs.current[pIdx].advertiesmentCount > scannedPeriphs.current[pIdx].prevAdvertismentCount) {
+            scannedPeriphs.current[pIdx].advertismentActive = scannedPeriphs.current[pIdx].advertismentActive + 1;
+            scannedPeriphs.current[pIdx].prevAdvertismentCount = scannedPeriphs.current[pIdx].advertiesmentCount;
+            scannedPeriphs.current[pIdx].advertismentInActive = false;
+          }
+        }
+      };
+
       peripheralViewUpdateInterval.current = setInterval(updatePeripheralView, 500); // Update the data every 500ms
     }
     handleConnectedAndBondedPeripherals();
     scan(scanEnable);
   }, [scanEnable]);
 
-  const handleUpdateState = (stateInfo: any) => {
-    if (stateInfo['state'] !== 'on' && stateInfo['state'] !== 'turning_on') {
-      Alert.alert(
-        '"SimpleLink Connect" would like to use Bluetooth',
-        'Please enable Bluetooth using phone Settings.',);
-      setScanEnable(false);
-      setBleState('off')
-    }
-    else {
-      setBleState('on')
-    }
-  }
-
-  const updatePeripheralView = () => {
-    setPeripherals((prev) => [...prev]);
-
-    for (let pIdx = 0; pIdx < scannedPeriphs.current.length; pIdx++) {
-      if (scannedPeriphs.current[pIdx].advertiesmentCount > scannedPeriphs.current[pIdx].prevAdvertismentCount) {
-        scannedPeriphs.current[pIdx].advertismentActive = scannedPeriphs.current[pIdx].advertismentActive + 1;
-        scannedPeriphs.current[pIdx].prevAdvertismentCount = scannedPeriphs.current[pIdx].advertiesmentCount;
-        scannedPeriphs.current[pIdx].advertismentInActive = false;
-      }
-    }
-
-    if (refreshing) {
-      setRefreshing(false);
-    }
-  };
 
   const handleDisconnectedPeripheral = (
     peripheralId: string,
@@ -271,21 +210,6 @@ const BleScanner: React.FC<Props> = () => {
       );
     }
 
-    if (fsContext.filter.address.enabled && fsContext.filter.address.value !== '') {
-      scannedPeriphs.current = scannedPeriphs.current.filter((a) =>
-        a.id
-          ?.trim()
-          .toLocaleLowerCase()
-          .includes(fsContext.filter.address.value.trim().toLocaleLowerCase())
-      );
-    }
-
-    if (fsContext.filter.profile.enabled && fsContext.filter.profile.value !== '') {
-      scannedPeriphs.current = scannedPeriphs.current.filter((a) =>
-        a.serviceUUIDs?.includes(fsContext.filter.profile.value) || a.serviceUUIDs?.includes(fsContext.filter.profile.value.toLocaleLowerCase())
-      );
-    }
-
     if (fsContext.filter.rssi.enabled && fsContext.filter.rssi.value !== '') {
       //console.debug('[Filter] By Rssi');
 
@@ -319,9 +243,9 @@ const BleScanner: React.FC<Props> = () => {
   ]);
 
   const sortPeripheral = useMemo(() => {
-    console.debug('sortPeripheral by ', sortOption);
+    console.debug('sortPeripheral');
 
-    if (sortOption === 'app_name') {
+    if (fsContext.sort.app_name) {
       //console.debug('[Sort] By App name');
       scannedPeriphs.current = scannedPeriphs.current.sort((a, b) => {
         if (a.name && b.name) {
@@ -334,7 +258,7 @@ const BleScanner: React.FC<Props> = () => {
       });
     }
 
-    if (sortOption === 'rssi') {
+    if (fsContext.sort.rssi) {
       //console.debug('[Sort] By Rssi');
       scannedPeriphs.current = scannedPeriphs.current.sort((a, b) => {
         let aRssi = Math.abs(a.rssi);
@@ -349,10 +273,6 @@ const BleScanner: React.FC<Props> = () => {
 
     if (peripheralViewUpdateInterval.current != null) {
       setPeripherals((prev) => [...prev]);
-    }
-
-    if (refreshing) {
-      setRefreshing(false);
     }
 
   }, [doSort]);
@@ -394,7 +314,6 @@ const BleScanner: React.FC<Props> = () => {
   }
 
   function handleDiscoverPeripheral(peripheral: Peripheral) {
-
     return new Promise((resolve, reject) => {
       if (!lastScannedPeriphs.current.map((ele: any) => ele.id).includes(peripheral.id)) {
         lastScannedPeriphs.current.push(peripheral);
@@ -448,9 +367,6 @@ const BleScanner: React.FC<Props> = () => {
           //console.log('name changed', peripheral.id);
           scannedPeriphs.current[periphIdx].name = peripheral.name;
         }
-        if (scannedPeriphs.current[periphIdx].serviceUUIDs !== peripheral.advertising.serviceUUIDs) {
-          scannedPeriphs.current[periphIdx].serviceUUIDs = peripheral.advertising.serviceUUIDs;
-        }
         scannedPeriphs.current[periphIdx].advertiesmentCount = scannedPeriphs.current[periphIdx].advertiesmentCount + 1;
       }
       resolve(peripheral);
@@ -494,7 +410,6 @@ const BleScanner: React.FC<Props> = () => {
   }
 
   const requestConnect = (peripheral: Peripheral) => {
-
     // console.debug('requestConnect: ', peripheralId);
     setScanEnable(false);
     clearInterval(peripheralViewUpdateInterval.current);
@@ -604,28 +519,16 @@ const BleScanner: React.FC<Props> = () => {
     return [...list]
   }, [connectedPeripherals])
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-
-    scannedPeriphs.current = [];
-    setPeripherals([]);
-
-    setDoSort(!doSort);
-
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
 
   return (
     <View style={[{ flex: 1 }]}>
-      <EnablerSection scanEnable={scanEnable} setScanEnable={scanSwitchEnabler} disabled={bleState == 'off'} />
+      <EnablerSection scanEnable={scanEnable} setScanEnable={scanSwitchEnabler} />
       {/* Connected Devices */}
       {memoConnectedDevices.length > 0 && (
         <View style={{ maxHeight: '40%' }}>
           {memoConnectedDevices.length < 10 && (
             <View >
-              <Separator style={{ backgroundColor: Colors.lightGray, padding: 10 }} text="Connected devices:" textStyles={{ fontWeight: "bold", fontSize: 15 / fontScale }} itemsCount={memoConnectedDevices.length} />
+              <Separator style={{ backgroundColor: Colors.lightGray, padding: 10 }} text="Connected devices:" textStyles={{ fontWeight: "bold" }} itemsCount={memoConnectedDevices.length} />
               <ScrollView >
                 <View style={{ flex: 1 }}>
                   <FlashList
@@ -657,7 +560,7 @@ const BleScanner: React.FC<Props> = () => {
 
       {/* Available Devices */}
       {
-        !sortOption && (
+        !fsContext.sort.rssi && !fsContext.sort.app_name && (
           <View
             style={{
               flexDirection: 'row',
@@ -669,14 +572,14 @@ const BleScanner: React.FC<Props> = () => {
             <Separator
               text="Available devices:"
               style={{ backgroundColor: Colors.lightGray }}
-              textStyles={{ fontWeight: 'bold', fontSize: 15 / fontScale }}
+              textStyles={{ fontWeight: 'bold' }}
               itemsCount={filteredPeripherals.length}
             />
           </View>
         )
       }
       {
-        (sortOption) && (
+        (fsContext.sort.rssi || fsContext.sort.app_name) && (
           <View
             style={{
               flexDirection: 'row',
@@ -688,7 +591,7 @@ const BleScanner: React.FC<Props> = () => {
             <Separator
               style={{ width: '90%', alignContent: 'flex-start' }}
               text="Available devices:"
-              textStyles={{ fontWeight: 'bold', fontSize: 15 / fontScale }}
+              textStyles={{ fontWeight: 'bold' }}
               itemsCount={filteredPeripherals.length}
             />
             <TouchableOpacity
@@ -723,9 +626,6 @@ const BleScanner: React.FC<Props> = () => {
           )}
           ListFooterComponent={
             <ScanningSkeleton periphsLenght={peripherals.length} scanEnabled={scanEnable} />
-          }
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
           estimatedItemSize={200}
         />

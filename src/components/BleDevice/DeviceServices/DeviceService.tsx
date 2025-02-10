@@ -31,12 +31,12 @@
  */
 
 import { View, StyleSheet } from 'react-native';
-import { Text } from '../../../components/Themed';
+import { Text } from '../../Themed';
 import React from 'react';
 import BleManager, { PeripheralInfo, Service } from 'react-native-ble-manager';
 import { useNavigation } from '@react-navigation/native';
 import { DeviceScreenNavigationProp } from '../../../../types';
-import { TouchableOpacity } from '../../../components/Themed';
+import { TouchableOpacity } from '../../Themed';
 import { Icon } from '@rneui/themed';
 import Layout from '../../../constants/Layout';
 import { useState } from 'react';
@@ -72,8 +72,8 @@ const DeviceService: React.FC<Props> = ({ service, peripheralInfo }) => {
 
   useEffect(() => {
     let checkIfServiceNameAvailable = async () => {
-      let check = await uuidToServiceName({ uuid: service.uuid, peripheralName: peripheralInfo?.name });
-      let checkIcon = await uuidToIcon({ uuid: service.uuid, peripheralName: peripheralInfo?.name });
+      let check = await uuidToServiceName({ uuid: service.uuid });
+      let checkIcon = await uuidToIcon({ uuid: service.uuid });
       if (check !== undefined) {
         setIcon(checkIcon);
         setServiceName(check);
@@ -85,16 +85,14 @@ const DeviceService: React.FC<Props> = ({ service, peripheralInfo }) => {
 
   return (
     <View style={[styles.container]}>
-      <View style={{ width: 35 }}>
-        {icon?.type === 'svg' ? (
-          <TIcon name={icon.iconName} />
-        ) : (
-          <Icon name={icon?.iconName!} type={icon?.type} />
-        )}
-      </View>
-      <View style={{ paddingLeft: 10, flexDirection: 'column', flex: 1 }}>
+      {icon?.type === 'svg' ? (
+        <TIcon name={icon.iconName} />
+      ) : (
+        <Icon name={icon?.iconName!} type={icon?.type} />
+      )}
+      <View style={{ paddingLeft: 10, flexDirection: 'column' }}>
         <Text style={{ fontWeight: 'bold' }}>{serviceName}</Text>
-        <Text numberOfLines={1} ellipsizeMode="middle" style={{ color: Colors.gray, }}>
+        <Text numberOfLines={1} ellipsizeMode="middle" style={{ color: Colors.gray, width: '85%' }}>
           {serviceUuidString}
         </Text>
         <Text
@@ -109,8 +107,6 @@ const DeviceService: React.FC<Props> = ({ service, peripheralInfo }) => {
       </View>
       <View style={{ marginLeft: 'auto' }}>
         <TouchableOpacity
-          accessibilityLabel="serviceChevronIcon"
-          testID="serviceChevronIcon"
           onPress={() =>
             navigation.navigate('Characteristics', {
               peripheralInfo: peripheralInfo!,

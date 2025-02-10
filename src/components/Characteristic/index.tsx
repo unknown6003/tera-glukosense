@@ -1,35 +1,3 @@
-/*
- * Copyright (c) 2023, Texas Instruments Incorporated
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * *  Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * *  Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * *  Neither the name of Texas Instruments Incorporated nor the names of
- *    its contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../Themed';
 import BleManager from 'react-native-ble-manager';
@@ -45,9 +13,8 @@ import CharacteristicServiceSkeleton from './CharacteristicService/Characteristi
 interface Props {
   serviceCharacteristics: BleManager.Characteristic[];
   serviceUuid: string;
-  serviceName: string | undefined;
+  serviceName: string;
   peripheralId: string;
-  peripheralName: string | undefined;
   icon: Icon;
 }
 
@@ -56,7 +23,6 @@ const Characteristic: React.FC<Props> = ({
   serviceUuid,
   serviceName,
   peripheralId,
-  peripheralName,
   icon,
 }) => {
 
@@ -74,77 +40,126 @@ const Characteristic: React.FC<Props> = ({
       label: 'Dec',
       value: 'Dec',
     },
-
     {
       label: 'UTF-8',
       value: 'UTF-8',
     },
-
   ];
 
+  type Modes = {
+    label: string;
+    value: string;
+  };
+  
+  let availableModes: Modes[] = [
+    {
+      label: 'Auto',
+      value: 'Auto',
+    },
+    {
+      label: 'Manual',
+      value: 'Manual',
+    },
+  ];
+  
+
   const [formats, setformats] = useState<Formats[]>(availableFormats);
-  const [openDropdown, setOpenDropdown] = useState<boolean>(false);
-  const [selectedFormat, setSelectedFormat] = useState<string>("Hex");
+  const [openFormatDropdown, setOpenFormatDropdown] = useState<boolean>(false);
+  const [openModeDropdown, setOpenModeDropdown] = useState<boolean>(false);
+  const [selectedFormat, setSelectedFormat] = useState<string>("Dec");
+  const [modes, setModes] = useState<Modes[]>(availableModes);
+  const [selectedMode, setSelectedMode] = useState<string>("Manual");
   const { characteristicData, loading } = useCharacteristicContext();
 
   return (
-    <KeyboardAwareScrollView
-    >
+    <View>
       <GenericService
         serviceName={serviceName}
         serviceUuid={serviceUuid}
         icon={icon}
+        peripheralId={peripheralId}
       />
-
-      <View style={[styles.formatContainer]}>
-        <Text style={{ fontSize: 20, paddingRight: 20 }}>Format</Text>
-        <DropDownPicker
-          zIndex={100}
-          containerStyle={[styles.dropDownPickerContainer]}
-          placeholder="Hex"
-          open={openDropdown}
-          setOpen={setOpenDropdown}
-          value={selectedFormat}
-          setValue={setSelectedFormat}
-          items={formats}
-          setItems={setformats}
-          style={{ minHeight: 35 }}
-        />
+      <View style={styles.rowContainer}>
+        {/* Format Dropdown */}
+        <View style={[styles.formatContainer]}>
+          <Text style={{ fontSize: 15, paddingRight: 10 }}>Format</Text>
+          <DropDownPicker
+            zIndex={100}
+            containerStyle={[styles.dropDownPickerContainer]}
+            placeholder="Hex"
+            open={openFormatDropdown} 
+            setOpen={setOpenFormatDropdown} 
+            value={selectedFormat}
+            setValue={setSelectedFormat}
+            items={formats}
+            setItems={setformats}
+            style={{ minHeight: 40 }}
+          />
+        </View>
+        {/* Mode Dropdown */}
+        <View style={[styles.formatContainer]}>
+          <Text style={{ fontSize: 15, paddingRight: 10 }}>Mode</Text>
+          <DropDownPicker
+            zIndex={100}
+            containerStyle={[styles.dropDownPickerContainer]}
+            placeholder="Auto"
+            open={openModeDropdown} 
+            setOpen={setOpenModeDropdown} 
+            value={selectedMode}
+            setValue={setSelectedMode}
+            items={modes}
+            setItems={setModes}
+            style={{ minHeight: 40 }}
+          />
+        </View>
       </View>
-
-      {!loading && (
-        <CharacteristicsList
-          peripheralId={peripheralId}
-          serviceUuid={serviceUuid}
-          serviceName={serviceName}
-          characteristics={serviceCharacteristics}
-          selectedFormat={selectedFormat}
-          setSelectedFormat={setSelectedFormat}
-        />
-      )}
-      {
-        loading && (
-          <CharacteristicServiceSkeleton />
-        )
-      }
-
-    </KeyboardAwareScrollView>
+      <KeyboardAwareScrollView
+        extraScrollHeight={30}
+        contentContainerStyle={{
+          paddingBottom: 240
+        }}
+        style={[styles.container]}
+      >
+        {!loading && (
+          <CharacteristicsList
+            peripheralId={peripheralId}
+            serviceUuid={serviceUuid}
+            serviceName={serviceName}
+            characteristics={serviceCharacteristics}
+            selectedFormat={selectedFormat}
+            setSelectedFormat={setSelectedFormat}
+            setSelectedMode={setSelectedMode}
+            selectedMode={selectedMode} 
+          />
+        )}
+        {
+          loading && (
+            <CharacteristicServiceSkeleton />
+          )
+        }
+      </KeyboardAwareScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  formatContainer: {
-    display: 'flex',
+  container: {},
+  rowContainer: {
     flexDirection: 'row',
-    paddingVertical: 20,
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  formatContainer: {
+    flex: 1,
+    paddingRight: 10,
     alignItems: 'center',
-    width: '100%',
-    zIndex: 100
+    flexDirection: 'row',
   },
   dropDownPickerContainer: {
-    width: '40%',
+    flex: 1,
   }
 });
+
 
 export default Characteristic;

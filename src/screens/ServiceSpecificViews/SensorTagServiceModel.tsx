@@ -34,12 +34,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Text, View } from '../../components/Themed';
 import { InteractionManager, NativeEventEmitter, NativeModules, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { MovementSensorState, } from '../../../types';
+import { MovementSensorState, SensorTagServiceModelScreenProps } from '../../../types';
 import { Buffer } from 'buffer';
 import { ScrollView } from 'react-native-gesture-handler';
+import { Icon } from '@rneui/themed';
 import Colors from '../../constants/Colors';
+import Spacing from '../../components/Spacing';
+import useColorScheme from '../../hooks/useColorScheme';
 import {
-  ACCELEROMETER_SERVICE,
   BAROMETRIC_SENSOR,
   CONNECTION_CONTROL_SERVICE,
   HUMIDITY_SENSOR,
@@ -60,10 +62,13 @@ import {
 import IOService from '../../components/SensorViews/IOService';
 import ConnectionControlService from '../../components/SensorViews/ConnectionControlService';
 import { serviceNameToIcon } from '../../hooks/uuidToName';
-import { useSpecificScreenConfigContext } from '../../context/SpecificScreenOptionsContext';
-import AccelerometerSensor from '../../components/SensorViews/AccelerometerSensor';
 
-const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: string | undefined }> = ({ peripheralId, serviceName }) => {
+interface Props extends SensorTagServiceModelScreenProps { }
+
+const SensorTagServiceModel: React.FC<Props> = ({ route }) => {
+  let peripheralId = route.params.peripheralId;
+  let theme = useColorScheme();
+  let serviceName = route.params.serviceName;
 
   const BleManagerModule = NativeModules.BleManager;
   const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
@@ -73,35 +78,6 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
     obj: [0],
     amb: [0],
   });
-  const { specificScreenConfig } = useSpecificScreenConfigContext();
-  const currentTempUnits = useRef<'F' | 'C'>(specificScreenConfig.tempUnits);
-  const currentScaleLSB = useRef<number>(Number(specificScreenConfig.temperatureSensorScaleLSB));
-
-  useEffect(() => {
-    if (currentTempUnits.current !== specificScreenConfig.tempUnits) {
-      currentTempUnits.current = specificScreenConfig.tempUnits
-      let convertedAmb = irTemperatureData.amb.map((amb) => {
-        return specificScreenConfig.tempUnits === 'F' ? (amb * 9 / 5) + 32 : (amb - 32) * 5 / 9;
-      });
-      let convertedObj = irTemperatureData.obj.map((obj) => {
-        return specificScreenConfig.tempUnits === 'F' ? (obj * 9 / 5) + 32 : (obj - 32) * 5 / 9;
-      })
-
-      let converted = {
-        obj: convertedObj,
-        amb: convertedAmb
-      }
-      setIRTemperatureData(converted);
-    }
-    if (currentScaleLSB.current !== Number(specificScreenConfig.temperatureSensorScaleLSB)) {
-      currentScaleLSB.current = Number(specificScreenConfig.temperatureSensorScaleLSB)
-    }
-
-  }, [specificScreenConfig.tempUnits, specificScreenConfig.temperatureSensorScaleLSB])
-
-
-  // Accelerometer Service
-  const [accelerometerData, setAccelerometerData] = useState<{ xaxis: number, yaxis: number, zaxis: number }[]>([{ xaxis: 0, yaxis: 0, zaxis: 0 }]);
 
   //Light sensor service
   const [opticalSensorData, setOpticalSensorData] = useState<number[]>([0]);
@@ -142,7 +118,7 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
       }
     }
     updateIcon(serviceName)
-  }, [serviceName]);
+  }, [route.params.serviceName]);
 
   useFocusEffect(
     useCallback(() => {
@@ -170,6 +146,7 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
           }) => {
             //All calculations from https://usermanual.wiki/Document/CC265020SensorTag20Users20Guide2020Texas20Instruments20Wiki.2070227354.pdf
             let bytes = Buffer.from(value);
+
             let lowerCasedCharacteristic = characteristic.toLocaleLowerCase();
 
             if (lowerCasedCharacteristic == OPTICAL_SENSOR.data) {
@@ -241,45 +218,20 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
                 mag: [...prev.mag, { x: magX, y: magY, z: magZ }],
               }));
             } else if (lowerCasedCharacteristic == IR_TEMPERATURE_SENSOR.data) {
-              // const SCALE_LSB = 0.03125;
+              const SCALE_LSB = 0.03125;
               let rawObjectTemp = bytes[0] + (bytes[1] << 8);
               let rawAmbienceTemp = bytes[2] + (bytes[3] << 8);
 
-              // Data in Celsuis
-              let objectTemp = (rawObjectTemp >> 2) * currentScaleLSB.current;
-              let ambienceTemp = (rawAmbienceTemp >> 2) * currentScaleLSB.current;
+              let objectTemp = (rawObjectTemp >> 2) * SCALE_LSB;
+              let ambienceTemp = (rawAmbienceTemp >> 2) * SCALE_LSB;
 
-              if (currentTempUnits.current === 'F') {
-                objectTemp = (objectTemp * 9 / 5) + 32
-                ambienceTemp = (ambienceTemp * 9 / 5) + 32
-              }
               setIRTemperatureData((prev) => ({
                 obj: [...prev.obj, objectTemp],
                 amb: [...prev.amb, ambienceTemp],
               }));
             } else if (lowerCasedCharacteristic == CONNECTION_CONTROL_SERVICE.notification) {
               console.log('Connection Control Service: Values updated.');
-            } else if (lowerCasedCharacteristic == ACCELEROMETER_SERVICE.notification) {
-              const notificationData = new Uint8Array(value);
-              const hexString = Array.from(notificationData)
-                .map(byte => byte.toString(16).padStart(2, '0'))
-                .join('');
-              let xaxis = parseInt(hexString.substring(0, 4), 16);
-              let yaxis = parseInt(hexString.substring(4, 8), 16);
-              let zaxis = parseInt(hexString.substring(8, 12), 16);
-              xaxis = xaxis * 0.244 / 1000;
-              yaxis = yaxis * 0.244 / 1000;
-              zaxis = zaxis * 0.244 / 1000;
-
-
-              setAccelerometerData(prev => [...prev, {
-                xaxis: xaxis,
-                yaxis: yaxis,
-                zaxis: zaxis,
-              }]);
-
             }
-
           }
         );
       })
@@ -432,7 +384,6 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
     if (serviceName.toLowerCase().includes("temp")) {
       return (
         <IRTemperatureSensor
-          icon={icon}
           peripheralId={peripheralId}
           irTemperatureData={irTemperatureData} />
       )
@@ -441,7 +392,6 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
     else if (serviceName.toLowerCase().includes("humidity")) {
       return (
         <HumiditySensor
-          icon={icon}
           peripheralId={peripheralId}
           humidityData={humidityData}
           temperatureData={temperatureData}
@@ -450,15 +400,13 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
     else if (serviceName.toLowerCase().includes("baromet")) {
       return (
         <BarometricSensor
-          icon={icon}
           peripheralId={peripheralId}
           barometerData={barometerData} />
       )
     }
-    else if (serviceName.toLowerCase().includes("light")) {
+    else if (serviceName.toLowerCase().includes("optical")) {
       return (
         <OpticalSensor
-          icon={icon}
           peripheralId={peripheralId}
           opticalSensorData={opticalSensorData} />
       )
@@ -466,7 +414,6 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
     else if (serviceName.toLowerCase().includes("movement")) {
       return (
         <MovementSensor
-          icon={icon}
           peripheralId={peripheralId}
           movementData={memoMovement} />
       )
@@ -474,7 +421,6 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
     else if (serviceName.toLowerCase().includes("simple key")) {
       return (
         <SimpleKeysService
-          icon={icon}
           keys={ky}
           peripheralId={peripheralId}
           enableKeysNotif={enableKeysNotif}
@@ -484,37 +430,41 @@ const SensorTagServiceModel: React.FC<{ peripheralId: string, serviceName: strin
     }
     else if (serviceName.toLowerCase().includes("battery")) {
       return (
-        <BatteryLevelService
-          icon={icon}
-          peripheralId={peripheralId} />
+        <BatteryLevelService peripheralId={peripheralId} />
       )
     }
     else if (serviceName.toLowerCase().includes("i/o")) {
       return (
-        <IOService
-          icon={icon}
-          peripheralId={peripheralId} />)
+        <IOService peripheralId={peripheralId} />)
     }
     else if (serviceName.toLowerCase().includes("control")) {
       return (
-        <ConnectionControlService
-          icon={icon}
-          peripheralId={peripheralId} />
-      )
-    }
-    else if (serviceName.toLowerCase().includes("accelerometer")) {
-      return (
-        <AccelerometerSensor
-          icon={icon}
-          peripheralId={peripheralId}
-          accelerometerData={accelerometerData} />
+        <ConnectionControlService peripheralId={peripheralId} />
       )
     }
   }
 
   return (
     <View style={{ flex: 1 }}>
-
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: Colors.lightGray, flexDirection: 'row', marginBottom: 2 },
+        ]}
+      >
+        <View
+          style={[
+            styles.deviceInfoIconContainer,
+            {
+              backgroundColor: Colors[theme].background,
+            },
+          ]}
+        >
+          <Icon name={icon ? icon?.iconName : "devices"} type={icon ? icon?.type : "fontawesome"} size={32} color={Colors[theme].text} />
+        </View>
+        <Spacing spaceT={10} />
+        <Text style={[styles.deviceName]}>Sensor Tag</Text>
+      </View>
       <ScrollView>
         {getRelevantParameters(serviceName)}
       </ScrollView>

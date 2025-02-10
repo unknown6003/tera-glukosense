@@ -30,6 +30,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+import { StyleSheet } from 'react-native';
 /* See README Design Notes section for more information regarding the SimpleBleScanner
 import BleScanner from '../src/components/SimpleBleScanner';
 */
@@ -43,10 +44,7 @@ export default function ScanScreen({ navigation, route }: any) {
     navigation.setOptions({
       headerRight() {
         return (
-          <TouchableOpacity
-            accessibilityLabel="openDrawerIcon"
-            testID="openDrawerIcon"
-            onPress={() => navigation.toggleDrawer()}>
+          <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
             <Icon
               name="dots-vertical"
               type="material-community"

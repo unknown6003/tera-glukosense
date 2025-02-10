@@ -37,11 +37,11 @@
  */
 import { FontAwesome, AntDesign } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer, DefaultTheme, DarkTheme, Theme, DrawerActions } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import * as React from 'react';
-import { ColorSchemeName, NativeEventEmitter, NativeModules, Platform, useWindowDimensions } from 'react-native';
+import { ColorSchemeName, Platform, NativeEventEmitter, NativeModules } from 'react-native';
 import Colors from '../constants/Colors';
 import useColorScheme from '../hooks/useColorScheme';
 import NotFoundScreen from '../screens/NotFoundScreen';
@@ -55,18 +55,13 @@ import {
 } from '../../types';
 import LinkingConfiguration from './LinkingConfiguration';
 import CharacteristicScreen from '../screens/CharacteristicScreen';
-import { TouchableOpacity } from '../components/Themed';
+import { Text, TouchableOpacity } from '../components/Themed';
 import SettingsModal from '../screens/SettingsModal';
 import FilterSortProvider from '../context/FilterSortContext';
 import FwUpdateServiceModel from '../screens/ServiceSpecificViews/FwUpdateServiceModel';
 import TutorialScreen from '../screens/TutorialScreen';
-import CharacteristicsSettingsDrawer from '../screens/CharacteristicsSettingsDrawer';
-import IopParametersScreen from '../screens/IopTestViews/IopParametersScreen';
-import IopTestScreen from '../screens/IopTestViews/IopTestScreen';
-import GattTestScreen from '../screens/IopTestViews/GattTestScreen';
-import { useCharacteristicViewContext } from '../context/CharactristicViewContext';
-import FilterSortOptionsScreen from '../screens/FilterSortOptionsScreen';
-import ConfigRepositoryUrlScreen from '../screens/ConfigRepositoryUrlScreen';
+import TerminalServiceModel from '../screens/ServiceSpecificViews/TerminalServiceModel';
+import SensorTagServiceModel from '../screens/ServiceSpecificViews/SensorTagServiceModel';
 
 let DefaultThemeExtended: Theme = {
   dark: false,
@@ -118,116 +113,72 @@ export default function Navigation({
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function RootNavigator({ showTutorial }: { showTutorial: boolean }) {
-  const { characteristicView, serviceName, hasSpecificScreen, hasTestOption } = useCharacteristicViewContext();
-  const { fontScale } = useWindowDimensions();
-
   return (
     <Stack.Navigator initialRouteName={showTutorial ? 'Tutorial' : 'Root'} id="stack">
       <Stack.Screen name="Root" component={BottomTabNavigator} options={{ headerShown: false }} />
       <Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
-      <Stack.Screen name="Characteristics"
-        component={CharacteristicsDrawer}
+      <Stack.Screen
+        name="Characteristics"
+        component={CharacteristicScreen}
         options={({ navigation }) => ({
-          title: hasSpecificScreen ? (characteristicView === 'advanced' ? 'Characteristic' : serviceName) : 'Characteristic',
+          title: 'Characteristics',
+          // headerLeft:
+          // Platform.OS === 'ios'
+          //   ? () => {
+          //       return (
+          //         //We could use some svg icon
+          //         <TouchableOpacity onPress={() => navigation.pop()}>
+          //           <Text>Back</Text>
+          //         </TouchableOpacity>
+          //       );
+          //     }
+          //   : undefined,
           headerTitleAlign: 'center',
           headerStyle: {
             backgroundColor: '#cc0000',
           },
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={'color'} />,
           headerTintColor: 'white',
-          headerTitleStyle: {
-            fontSize: 17 / fontScale
-          },
-          headerShown: true,
-          headerLeft: (props) => (
-            <TouchableOpacity
-              testID='backButton' accessibilityLabel='backButton'
-              {...props}
-              onPress={() => navigation.goBack()}
-            >
-              <AntDesign name="left" size={24} color="white" />
-            </TouchableOpacity>
-          ),
-          headerRight: () => {
-            if (!hasSpecificScreen && !hasTestOption) {
-              return null;
-            } else {
-              return (
-                <TouchableOpacity style={{ paddingRight: 15 }} onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} testID='openSettings' accessibilityLabel='openSettings'>
-                  <FontAwesome name="gear" size={24} color="white" />
-                </TouchableOpacity>
-              )
-            }
-          },
+          headerLeft: (props) => {
+            return (
+              //We could use some svg icon
+              <TouchableOpacity {...props} onPress={() => navigation.pop()} >
+                <AntDesign name="left" size={24} color="white" />
+              </TouchableOpacity>)
+          }
         })}
       />
+      <Stack.Screen name="Tutorial" component={TutorialScreen} options={{ headerShown: false }} />
       <Stack.Group screenOptions={{ presentation: 'modal' }}>
         <Stack.Screen
           name="FwUpdateServiceModel"
           component={FwUpdateServiceModel}
-          options={{
-            title: 'Firmware Update',
-            headerTintColor: 'white',
-            headerTitleStyle: {
-              fontSize: 17 / fontScale
+          options={{ title: 'Firmware Update', headerTintColor: 'white' }}
+        />
+        <Stack.Screen
+          name="TerminalServiceModel"
+          component={TerminalServiceModel}
+          options={({ navigation }) => ({
+            title: 'Terminal',
+            headerTitleAlign: 'center',
+            headerStyle: {
+              backgroundColor: '#cc0000',
             },
-          }}
+            headerTintColor: 'white',
+            headerLeft: (props) => {
+              return (
+                //We could use some svg icon
+                <TouchableOpacity {...props} onPress={() => navigation.pop()} >
+                  <AntDesign name="left" size={24} color="white" />
+                </TouchableOpacity>)
+            }
+          })}
         />
       </Stack.Group>
-      <Stack.Screen name="Tutorial" component={TutorialScreen} options={{ headerShown: false }} />
       <Stack.Screen
-        name="IopParameters"
-        component={IopParametersScreen}
+        name="SensorTagModel"
+        component={SensorTagServiceModel}
         options={({ navigation }) => ({
-          title: 'Stress Test',
-          headerTitleAlign: 'center',
-          headerStyle: {
-            backgroundColor: '#cc0000',
-          },
-          headerTitleStyle: {
-            fontSize: 17 / fontScale
-          },
-          headerTintColor: 'white',
-          headerLeft: (props) => {
-            return (
-              //We could use some svg icon
-              <TouchableOpacity {...props} onPress={() => navigation.pop()} testID='backButton' accessibilityLabel='backButton'>
-                <AntDesign name="left" size={24} color="white" />
-              </TouchableOpacity>)
-          }
-        })}
-      />
-      <Stack.Screen
-        name="GattTesting"
-        component={GattTestScreen}
-        options={({ navigation }) => ({
-          title: 'GATT Testing',
-          headerTitleAlign: 'center',
-          headerStyle: {
-            backgroundColor: '#cc0000',
-          },
-          headerTitleStyle: {
-            fontSize: 17 / fontScale
-          },
-          headerTintColor: 'white',
-          headerLeft: (props) => {
-            return (
-              //We could use some svg icon
-              <TouchableOpacity {...props} onPress={() => navigation.pop()} testID='backButton' accessibilityLabel='backButton'>
-                <AntDesign name="left" size={24} color="white" />
-              </TouchableOpacity>)
-          }
-        })}
-      />
-
-      <Stack.Screen
-        name="IopTest"
-        component={IopTestScreen}
-        options={({ navigation }) => ({
-          title: 'Stress Test',
-          headerTitleStyle: {
-            fontSize: 17 / fontScale
-          },
+          title: 'SensorTag',
           headerTitleAlign: 'center',
           headerStyle: {
             backgroundColor: '#cc0000',
@@ -236,50 +187,7 @@ function RootNavigator({ showTutorial }: { showTutorial: boolean }) {
           headerLeft: (props) => {
             return (
               //We could use some svg icon
-              <TouchableOpacity {...props} onPress={() => { navigation.pop(); console.log(navigation) }} testID='backButton' accessibilityLabel='backButton'>
-                <AntDesign name="left" size={24} color="white" />
-              </TouchableOpacity>)
-          }
-        })}
-      />
-      <Stack.Screen
-        name="FilterSortOptions"
-        component={FilterSortOptionsScreen}
-        options={({ navigation }) => ({
-          title: 'Settings',
-          headerTitleAlign: 'center',
-          headerStyle: {
-            backgroundColor: '#cc0000',
-          },
-          headerTitleStyle: {
-            fontSize: 17 / fontScale
-          },
-          headerTintColor: 'white',
-          headerLeft: (props) => {
-            return (
-              <TouchableOpacity {...props} onPress={() => { navigation.pop(); console.log(navigation) }} testID='backButton' accessibilityLabel='backButton'>
-                <AntDesign name="left" size={24} color="white" />
-              </TouchableOpacity>)
-          }
-        })}
-      />
-      <Stack.Screen
-        name="ConfigRepository"
-        component={ConfigRepositoryUrlScreen}
-        options={({ navigation }) => ({
-          title: 'Settings',
-          headerTitleAlign: 'center',
-          headerStyle: {
-            backgroundColor: '#cc0000',
-          },
-          headerTitleStyle: {
-            fontSize: 17 / fontScale
-          },
-          headerTintColor: 'white',
-          headerLeft: (props) => {
-            return (
-              //We could use some svg icon
-              <TouchableOpacity {...props} onPress={() => { navigation.pop(); console.log(navigation) }} testID='backButton' accessibilityLabel='backButton'>
+              <TouchableOpacity {...props} onPress={() => navigation.pop()} >
                 <AntDesign name="left" size={24} color="white" />
               </TouchableOpacity>)
           }
@@ -303,7 +211,7 @@ function DrawerNavigation() {
       id="drawer"
       screenOptions={{
         headerLeft: () => undefined,
-        drawerStyle: { backgroundColor: '#fff', width: '75%', },
+        drawerStyle: { backgroundColor: '#fff', width: '85%', },
       }}
       drawerContent={(props) => <SettingsModal {...props} />}
     >
@@ -315,31 +223,6 @@ function DrawerNavigation() {
     </Drawer.Navigator>
   );
 }
-
-const CharacteristicSettingDrawer = createDrawerNavigator();
-
-function CharacteristicsDrawer({ route, navigation }) {
-
-  return (
-    <CharacteristicSettingDrawer.Navigator
-      id="CharacteristicSettingDrawer"
-      screenOptions={() => ({
-        headerLeft: () => undefined,
-        drawerStyle: { backgroundColor: '#fff', width: '70%' },
-        drawerPosition: "right",
-        drawerType: Platform.OS == 'android' ? 'front' : 'back',
-      })
-      }
-      drawerContent={(props) => <CharacteristicsSettingsDrawer {...props} />}
-    >
-      <CharacteristicSettingDrawer.Screen name="Characteristics" component={CharacteristicScreen} initialParams={{ ...route.params }}
-        options={{
-          headerShown: false
-        }}
-      />
-    </CharacteristicSettingDrawer.Navigator>
-  );
-};
 
 function BottomTabNavigator() {
   const colorScheme = useColorScheme();
@@ -371,7 +254,7 @@ function BottomTabNavigator() {
         options={({ route, navigation }: RootTabScreenProps<'DeviceTab'>) => ({
           title: 'Services',
           headerTitleStyle: { color: 'white' },
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={'color'} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
           headerLeft: (props) => {
             const goBack = () => {
               const BleManagerModule = NativeModules.BleManager;
@@ -381,14 +264,13 @@ function BottomTabNavigator() {
             };
 
             return (
-              <TouchableOpacity {...props} style={{ paddingLeft: 15 }} onPress={goBack} testID='backButton' accessibilityLabel='backButton'>
+              <TouchableOpacity {...props} style={{ paddingLeft: 15 }} onPress={goBack}>
                 <AntDesign name="left" size={24} color="white" />
               </TouchableOpacity>
             );
           },
         })}
       />
-
     </BottomTab.Navigator>
   );
 }

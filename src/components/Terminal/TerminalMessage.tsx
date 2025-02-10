@@ -1,33 +1,11 @@
-import { useTerminalConfigContext } from '../../context/TerminalOptionsContext';
 import { Text, View } from '../Themed';
-import { AnsiComponent } from 'react-native-ansi-view';
+
 interface RenderItemProps {
   message: string;
   date: string;
-  received: boolean;
-  length: number;
 }
 
-const TerminalRenderItem: React.FC<RenderItemProps> = ({ message, date, received, length }) => {
-  let { terminalConfig: config, } = useTerminalConfigContext();
-
-  while (message.includes('\u0000')) {
-    message = message.replace('\u0000', '');
-  }
-
-  const getMessage = () => {
-    if (received) {
-      return <AnsiComponent key={date} textStyle={{ color: '#03DAC5', flexWrap: 'wrap', flex: 1 }} ansi={message} />
-    }
-    else {
-      return <AnsiComponent key={date} textStyle={{ color: 'white', flexWrap: 'wrap', flex: 1 }} ansi={message} />
-    }
-  }
-
-  if (config.disabledLocalEcho && !received) {
-    return <></>
-  }
-
+const TerminalRenderItem: React.FC<RenderItemProps> = ({ message, date }) => {
   return (
     <View
       style={{
@@ -36,9 +14,8 @@ const TerminalRenderItem: React.FC<RenderItemProps> = ({ message, date, received
         backgroundColor: 'black',
       }}
     >
-      {config.timestamp && date && <Text style={{ color: received ? '#03DAC5' : 'white', paddingRight: 5 }}>{date}</Text>}
-      {config.messageLength && length && <Text style={{ color: received ? '#03DAC5' : 'white', paddingRight: 5 }}>[{length}]</Text>}
-      {getMessage()}
+      {date && <Text style={{ color: 'white', paddingRight: 5 }}>{date}</Text>}
+      <Text style={{ color: 'white', flexWrap: 'wrap', flex: 1 }}>{message}</Text>
     </View>
   );
 };

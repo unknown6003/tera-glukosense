@@ -30,7 +30,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { View, StyleSheet, Platform, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Text } from '../../Themed';
 import React, { memo, useRef, useState } from 'react';
 import { Peripheral } from 'react-native-ble-manager';
@@ -63,7 +63,6 @@ const ScannedDevice: React.FC<Device> = ({
   const lastPeripheralId = useRef(peripheral.id ?? '');
   const [visibleInfo, setVisibleInfo] = useState<boolean>(peripheral.showAdvertising);
   const [icon, setIcon] = useState<any>(peripheral.icon);
-  const { fontScale } = useWindowDimensions();
 
   if (peripheral && peripheral.id !== lastPeripheralId.current) {
     lastPeripheralId.current = peripheral.id;
@@ -136,13 +135,9 @@ const ScannedDevice: React.FC<Device> = ({
           </TouchableOpacity>
           {!peripheral.isConnected && (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Icon name="signal" type="font-awesome" color={peripheral.filter ? Colors.gray : peripheral.advertismentInActive ? Colors.gray : 'black'} />
-              <Text style={{ width: 35, textAlign: 'center', color: peripheral.filter ? Colors.gray : peripheral.advertismentInActive ? Colors.gray : 'black', fontSize: 14 / fontScale }}> {peripheral.rssi} </Text>
-              <TouchableOpacity
-                onPress={peripheral.advertismentInActive ? () => { } : peripheral.filter ? () => { } : requestConnect}
-                testID='requestConnectButton'
-                accessibilityLabel='requestConnectButton'
-              >
+              <Icon name="signal" type="font-awesome" onPress={requestConnect} color={peripheral.filter ? Colors.gray : peripheral.advertismentInActive ? Colors.gray : 'black'} />
+              <Text style={{ width: 35, textAlign: 'center', color: peripheral.filter ? Colors.gray : peripheral.advertismentInActive ? Colors.gray : 'black' }}> {peripheral.rssi} </Text>
+              <TouchableOpacity onPress={peripheral.advertismentInActive ? () => { } : peripheral.filter ? () => { } : requestConnect}>
                 <Icon name="chevron-right" type="evilicon" size={40} color={peripheral.filter ? 'white' : peripheral.advertismentInActive ? 'white' : 'black'} />
               </TouchableOpacity>
             </View>
@@ -182,7 +177,7 @@ const ScannedDevice: React.FC<Device> = ({
                 paddingLeft={5}
               />
             )}
-            <Text style={{ paddingHorizontal: 5, color: peripheral.filter ? Colors.gray : peripheral.advertismentInActive ? Colors.gray : 'black', fontSize: 14 / fontScale }}>
+            <Text style={{ maxWidth: 100, paddingHorizontal: 5, color: peripheral.filter ? Colors.gray : peripheral.advertismentInActive ? Colors.gray : 'black' }}>
               Advertising
             </Text>
             <Icon
@@ -215,7 +210,6 @@ const ScannedDevice: React.FC<Device> = ({
             />
           </View>
         )}
-
         <ScannedDeviceInfo peripheral={peripheral} isVisible={visibleInfo} />
       </View>
     </View >

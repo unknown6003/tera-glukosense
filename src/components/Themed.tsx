@@ -44,6 +44,7 @@ import {
 import { Switch as DefaultSwitch } from '@rneui/base';
 
 import Colors from '../constants/Colors';
+import Shadows from '../constants/Shadows';
 import useColorScheme from '../hooks/useColorScheme';
 
 export function useThemeColor(
@@ -103,4 +104,3 @@ export function Switch(props: SwitchProps) {
     />
   );
 }
-

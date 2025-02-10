@@ -45,7 +45,6 @@ interface Props {
   keys: { left: number[]; right: number[]; zero: number[] };
   enableKeysNotif: boolean;
   setEnableKeysNotif: React.Dispatch<React.SetStateAction<boolean>>;
-  icon: any;
 }
 
 const SimpleKeysService: React.FC<Props> = ({
@@ -53,7 +52,6 @@ const SimpleKeysService: React.FC<Props> = ({
   keys,
   enableKeysNotif: enable,
   setEnableKeysNotif: setEnable,
-  icon
 }) => {
   useEffect(() => {
     if (enable) {
@@ -83,7 +81,7 @@ const SimpleKeysService: React.FC<Props> = ({
 
   return (
     <View style={{ flexDirection: 'column' }}>
-      <SensorPresentation name="Simple Keys" uuid={SIMPLE_KEYS_SERVICE.service} icon={icon} />
+      <SensorPresentation name="Simple Keys" uuid={SIMPLE_KEYS_SERVICE.service} />
       <View style={styles.chartContainer}>
         <View style={styles.switchContainer}>
           <Text style={{ paddingRight: 10 }}>Enable</Text>

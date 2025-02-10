@@ -40,10 +40,9 @@ import { StyleSheet } from 'react-native';
 
 interface Props {
   peripheralId: string;
-  icon: any;
 }
 
-const BatteryLevelService: React.FC<Props> = ({ peripheralId, icon }) => {
+const BatteryLevelService: React.FC<Props> = ({ peripheralId }) => {
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const readBatteryLevel = () => {
     setBatteryLevel(null);
@@ -82,7 +81,7 @@ const BatteryLevelService: React.FC<Props> = ({ peripheralId, icon }) => {
 
   return (
     <View>
-      <SensorPresentation name="Battery Level" uuid={BATTERY_LEVEL.service} icon={icon} />
+      <SensorPresentation name="Battery Level" uuid={BATTERY_LEVEL.service} />
       <View style={styles.insideContainer}>
         <Icon name={batteryIcon} type="font-awesome-5" size={32} />
         <Text style={{ paddingTop: 10, fontWeight: 'bold' }}>

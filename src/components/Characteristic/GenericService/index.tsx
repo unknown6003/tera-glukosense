@@ -31,37 +31,72 @@
  */
 
 import { View, StyleSheet } from 'react-native';
-import React from 'react';
+import { Text } from '../../Themed';
+import React, { useCallback, useEffect, useState } from 'react';
 import ServiceParameters from './ServiceParameters';
 import ServicePresentation from './ServicePresentation';
+import { TouchableOpacity } from '../../Themed';
 import Colors from '../../../constants/Colors';
-import { Icon } from '../../../../types';
-
+import { uuidToServiceSpecificScreen } from '../../../hooks/uuidToName';
+import { CharacteristicsScreenNavigationProp, Icon, RootStackParamList } from '../../../../types';
+import { useNavigation } from '@react-navigation/native';
+import { SUPPORTED_SPAECIFIC_SCREEN } from '../../../constants/SensorTag';
 
 interface Props {
   serviceUuid: string;
-  serviceName: string | undefined;
+  serviceName: string;
   icon: Icon;
+  peripheralId: string;
 }
 
-const GenericService: React.FC<Props> = ({ serviceUuid, serviceName, icon }: Props) => {
+const GenericService: React.FC<Props> = ({ serviceUuid, serviceName, icon, peripheralId }) => {
+  let navigation = useNavigation<CharacteristicsScreenNavigationProp>();
+
+  const [screenSpecific, setScreenSpecific] = useState<keyof RootStackParamList | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        let checkForScreenSpecificScreen = await uuidToServiceSpecificScreen({ uuid: serviceUuid });
+        if (!checkForScreenSpecificScreen || !isServiceSupportSensor()) throw Error('Service Specific Screen not implemented!');
+
+        setScreenSpecific(
+          checkForScreenSpecificScreen.serviceSpecificScreen as keyof RootStackParamList
+        );
+
+      } catch (error) {
+        setScreenSpecific(null);
+      }
+    })();
+  }, [serviceUuid]);
+
+  let isServiceSupportSensor = () => {
+    return SUPPORTED_SPAECIFIC_SCREEN.find(sensor => serviceName.toLowerCase().includes(sensor))
+  }
+
+  let navigateToScreenSpecific = useCallback(() => {
+    if (!screenSpecific) {
+      return;
+    }
+
+    navigation.navigate(screenSpecific, {
+      peripheralId, serviceName
+    });
+  }, [screenSpecific]);
 
   return (
     <View>
-      <View style={[styles.container, {
-        width: '100%', marginTop: 0, flexDirection: 'row', shadowColor: 'rgba(0,0,0,0.4)',
-        shadowOffset: {
-          height: 1,
-          width: 0,
-        },
-        shadowOpacity: 1,
-        shadowRadius: 3,
-        elevation: 5,
-        zIndex: 1
-      }]}>
+      <View style={[styles.container, { width: '100%', marginTop: 0, flexDirection: 'row' }]}>
         <ServicePresentation icon={icon} />
         <ServiceParameters serviceName={serviceName} serviceUuid={serviceUuid} />
       </View>
+      {screenSpecific && (
+        <View style={[styles.ServiceSpecficContainer]}>
+          <TouchableOpacity onPress={screenSpecific ? navigateToScreenSpecific : undefined}>
+            <Text style={{ color: Colors.blue }}>Change to Service Specific View</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -71,6 +106,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.lightGray,
     paddingVertical: 10,
     alignItems: 'center',
+    shadowColor: 'rgba(0,0,0,0.4)',
+    shadowOffset: {
+      height: 1,
+      width: 0,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 5,
   },
   ServiceSpecficContainer: {
     marginTop: 20,
