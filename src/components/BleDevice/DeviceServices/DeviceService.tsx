@@ -74,6 +74,8 @@ const DeviceService: React.FC<Props> = ({ service, peripheralInfo }) => {
     let checkIfServiceNameAvailable = async () => {
       let check = await uuidToServiceName({ uuid: service.uuid });
       let checkIcon = await uuidToIcon({ uuid: service.uuid });
+      console.log(check);
+      
       if (check !== undefined) {
         setIcon(checkIcon);
         setServiceName(check);
