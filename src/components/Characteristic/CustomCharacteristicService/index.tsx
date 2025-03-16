@@ -231,8 +231,12 @@ console.log("checkRead:"+checkRead);
   const [x3, setX3] = useState<number>(1);
   const [x4, setX4] = useState<number>(1);
   const [sensorData, setSensorData] = useState<
-  { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number, data: any }[]
+  { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number,timeString: string, dateString: string, data: any }[]
 >([]);
+
+  const [singleSensorData, setSingleSensorData] = useState<
+  { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number,timeString: string, dateString: string, data: any }[]
+  >([]);
 
   const handleInputChange = (text: string, setter: React.Dispatch<React.SetStateAction<number>>) => {
     if (text === "") {
@@ -655,8 +659,11 @@ function generateDummyData(packetCount: number = 5): number[][] {
             // Compute average of transformed readings
             const avgReading =
               transformedReadings.reduce((sum, val) => sum + val, 0) / transformedReadings.length;
-  
-            return { packetIndex, batteryLevel, readings, avgReading, data };
+            
+            const timeInString = new Date(); 
+            const dateString = timeInString.toLocaleDateString(); // Extract date in MM/DD/YYYY format
+            const timeString = timeInString.toTimeString().slice(0, 8); 
+            return { packetIndex, batteryLevel, readings, avgReading,timeString, dateString ,data };
           });
           console.log("processedPackets",processedPackets);
           // Store data in state (sorting & deduplication)
@@ -669,6 +676,7 @@ function generateDummyData(packetCount: number = 5): number[][] {
           //   return uniqueData.sort((a, b) => a.packetIndex - b.packetIndex);
           // });
 
+          
           setSensorData((prevData) => {
             console.log("Previous sensorData:", prevData);
             console.log("New processedPackets:", processedPackets);
@@ -681,13 +689,59 @@ function generateDummyData(packetCount: number = 5): number[][] {
             console.log("Updated sensorData:", uniqueData);
             return uniqueData.sort((a, b) => a.packetIndex - b.packetIndex);
           });
+
+
+          setSingleSensorData(processedPackets);
         }
       })
       .catch((error) => {
         console.log("read error: ", error);
       });
   }, [selectedFormat, selectedMode]);
+
+
+  useEffect(() => {
+    appendCSVtoFile(folderPath, fileName);
+  }, [singleSensorData]); 
   
+
+  const retrieveAndSetSensorData = async (filePath: string) => {
+    try {
+      const fileExists = await RNFS.exists(filePath);
+      if (!fileExists) {
+        console.log("CSV file does not exist yet.");
+        return;
+      }
+  
+      const csvContent = await RNFS.readFile(filePath, "utf8");
+      console.log("Retrieved CSV Content: ", csvContent);
+  
+      // Split lines and remove first two rows (headers)
+      const lines = csvContent.trim().split("\n").slice(2); // Skip first 2 rows
+  
+      const parsedData = lines.map((line) => {
+        const [packetIndex, batteryLevel, reading1, reading2, reading3, reading4, avgReading, time, date, data] =
+          line.split(",");
+  
+        return {
+          packetIndex: Number(packetIndex),
+          batteryLevel: Number(batteryLevel),
+          readings: [Number(reading1), Number(reading2), Number(reading3), Number(reading4)],
+          avgReading: Number(avgReading),
+          timeString: time,
+          dateString: date,
+          data,
+        };
+      });
+  
+      console.log("Parsed CSV Data:", parsedData);
+      setSensorData(parsedData); // Store in state
+    } catch (error) {
+      console.error("Error reading CSV file:", error);
+    }
+  };
+
+
   // Helper function to split data into packets of fixed size
   const chunkArray = (array: number[], size: number): number[][] => {
     const chunks: number[][] = [];
@@ -759,6 +813,8 @@ useEffect(() => {
       Alert.alert("Invalid Input", "Please enter valid input");
       return;
     }
+
+   
   
     setIsReading(true);
   
@@ -783,19 +839,32 @@ useEffect(() => {
     // Prepare CSV file
     const dateString = currentTime.toISOString().slice(0, 10);
     const timeString = currentTime.toTimeString().slice(0, 8);
-    const fileName = sanitizeFilename(`${peripheralId}_${dateString}_${timeString}`);
+    //const fileName = sanitizeFilename(`${peripheralId}_${dateString}_${timeString}`);
+    const fileName = "myblefile";
     const filePath = `${folderPath}/${fileName}.csv`;
     setFileName(fileName);
+
+    retrieveAndSetSensorData(filePath);
   
     RNFS.exists(folderPath).then((exists) => {
       if (!exists) {
         RNFS.mkdir(folderPath, { NSURLIsExcludedFromBackupKey: true });
       }
     });
-    // return { packetIndex, batteryLevel, readings, avgReading, data };
-    RNFS.writeFile(filePath, `${peripheralId},${serviceUuid},${serviceName}\npacketIndex,batteryLevel,reading 1,reading 2,reading 3,reading 4,avgReading,time,date,data\n`, "utf8")
-      .then(() => console.log("CSV file created:", filePath))
-      .catch((error) => console.error("Error creating CSV file:", error));
+   
+    // Check if file exists before creating and adding headers
+    RNFS.exists(filePath).then((fileExists) => {
+      if (!fileExists) {
+        // Create file with headers only if it doesn't exist
+        const headerContent = `${peripheralId},${serviceUuid},${serviceName}\npacketIndex,batteryLevel,reading 1,reading 2,reading 3,reading 4,avgReading,time,date,data\n`;
+        
+        RNFS.writeFile(filePath, headerContent, "utf8")
+          .then(() => console.log("CSV file created:", filePath))
+          .catch((error) => console.error("Error creating CSV file:", error));
+      } else {
+        console.log("CSV file already exists, not adding headers.");
+      }
+    });
   
     // Function to perform continuous readings for 10 seconds
     const performReadings = () => {
@@ -815,9 +884,7 @@ useEffect(() => {
     };
   
     // Schedule the first listening session exactly when 'nextTime' arrives
-    const firstReadDelay = next.getTime() - currentTime.getTime();
-    // const firstReadDelay = 2000; // ⏳ **Delay for 2 seconds instead of 5 minutes**
-    console.log(`⏰ Scheduling first reading in ${firstReadDelay / 1000} seconds`);
+    const firstReadDelay = 0;
   
     setTimeout(() => {
       performReadings();
@@ -832,7 +899,7 @@ useEffect(() => {
   // ************************************************ Stop and Save ************************************************
 const generateCSVContent = () => {
   // Generate data rows for each response
-  const dataRows = sensorData.map((response, index) => {
+  const dataRows = singleSensorData.map((response, index) => {
     const timeInString = new Date(); // Assuming the current time for each response
     const dateString = timeInString.toLocaleDateString(); // Extract date in MM/DD/YYYY format
     const timeString = timeInString.toTimeString().slice(0, 8); // Extract time in HH:MM:SS format
@@ -891,14 +958,9 @@ const generateCSVContent = () => {
   };
 
   const handleStopReading = () => {
-    console.log(
-      "handleStopReading",
-      autoReadResponses,
-      autoReadResponses.length
-    );
 
     // append the remaining data to the file
-    appendCSVtoFile(folderPath, fileName);
+    //appendCSVtoFile(folderPath, fileName);
 
     setIsReading(false);
     setCustomReadResponses([]);
@@ -941,84 +1003,6 @@ const generateCSVContent = () => {
       { cancelable: false }
     );
   }, [folderPath]);
-
-  // *********************************************** Graph Starts *********************************************** //
-
-
-// const chartOptions = useMemo(
-//   () => ({
-//     backgroundColor: "#333",
-//     grid: {
-//       top: "10%",
-//       bottom: "20%",
-//       left: "2%",
-//       right: "5%",
-//       containLabel: true,
-//     },
-//     dataZoom: {
-//       start: 0,
-//       type: "slider",
-//     },
-//     xAxis: {
-//       type: "time",
-//       splitNumber: 3,
-//       splitLine: {
-//         show: true,
-//         lineStyle: {
-//           color: "yellow",
-//           opacity: 0.1,
-//         },
-//       },
-//       axisLabel: {
-//         formatter: function (value: any) {
-//           const date = new Date(value);
-//           const hours = date.getHours().toString().padStart(2, "0");
-//           const minutes = date.getMinutes().toString().padStart(2, "0");
-//           return `${hours}:${minutes}`;
-//         },
-//         margin: 11.5,
-//         hideOverlap: true,
-//       },
-//     },
-//     yAxis: {
-//       type: "value",
-//       min: 0,
-//       max: 100,
-//       interval: 10,
-//       axisLine: {
-//         show: true,
-//       },
-//       splitLine: {
-//         show: true,
-//         lineStyle: {
-//           color: "yellow",
-//           opacity: 0.1,
-//         },
-//       },
-//       splitNumber: 10,
-//     },
-//     series: [
-//       {
-//         data: [
-//           { name: "2024-03-14T00:00:00", value: [1710374400000, 20] },
-//           { name: "2024-03-14T01:00:00", value: [1710378000000, 50] },
-//           { name: "2024-03-14T02:00:00", value: [1710381600000, 30] },
-//           { name: "2024-03-14T03:00:00", value: [1710385200000, 70] },
-//           { name: "2024-03-14T04:00:00", value: [1710388200000, 70] },
-//         ],
-//         type: "line",
-//         symbolSize: 1,
-//         lineStyle: {
-//           color: "rgba(210, 25, 25, 1)",
-//         },
-//         itemStyle: {
-//           color: "rgba(125, 103, 103, 1)",
-//         },
-//       },
-//     ],
-//   }),
-//   []
-// );
 
 
 const chartOptions = useMemo(
