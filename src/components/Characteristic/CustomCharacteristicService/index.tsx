@@ -223,6 +223,9 @@ console.log("checkRead:"+checkRead);
   // ************************* Auto Read Constants End ************************* //
 
   // CUSTOM MODE STATES START //
+
+  const [isDownloadEnabled, setIsDownloadEnabled] = useState<boolean>(false);
+
   const [x1, setX1] = useState<number>(1);
   const [x2, setX2] = useState<number>(1);
   const [x3, setX3] = useState<number>(1);
@@ -905,6 +908,7 @@ const generateCSVContent = () => {
     // reset initial and next time
     setInitialTime(null);
     setNextTime(null);
+    setIsDownloadEnabled(true);
 
     // Clear the timeouts
     timeouts.forEach((timeout) => clearTimeout(timeout));
@@ -1200,7 +1204,7 @@ const chartOptions = useMemo(
             
         </View>
 
-        <View style={{ paddingTop: 10 }}>
+        {isDownloadEnabled && <View style={{ paddingTop: 10 }}>
             {Boolean(fileName) && (
              <TouchableOpacity
              onPress={async () => {
@@ -1231,7 +1235,7 @@ const chartOptions = useMemo(
              <Text style={{ fontWeight: "bold" }}>Download File</Text>
            </TouchableOpacity>
             )}
-            </View>
+          </View>}
 
           </View>
           {/* Display the three buttons */}
