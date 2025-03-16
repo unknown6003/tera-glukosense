@@ -227,7 +227,7 @@ console.log("checkRead:"+checkRead);
   const [minutes, setMinutes] = useState<number>(1);
   const [seconds, setSeconds] = useState<number>(1);
   const [numReadings, setNumReadings] = useState<number>(60);
-  const [avgTime, setAvgTime] = useState<number>(5);
+  const [avgTime, setAvgTime] = useState<number>(0.05);
   const [isReading, setIsReading] = useState<boolean>(false);
   const [readingInterval, setReadingInterval] = useState<NodeJS.Timeout | null>(
     null
@@ -256,10 +256,21 @@ console.log("checkRead:"+checkRead);
   // ************************* Auto Read Constants End ************************* //
 
   // CUSTOM MODE STATES START //
-  const [x1, setX1] = useState<number>(0);
-  const [x2, setX2] = useState<number>(0);
-  const [x3, setX3] = useState<number>(0);
-  const [x4, setX4] = useState<number>(0);
+  const [x1, setX1] = useState<number>(1);
+  const [x2, setX2] = useState<number>(1);
+  const [x3, setX3] = useState<number>(1);
+  const [x4, setX4] = useState<number>(1);
+  
+  const handleInputChange = (text: string, setter: React.Dispatch<React.SetStateAction<number>>) => {
+    if (text === "") {
+      setter(0); // Default to 0 instead of null
+    } else {
+      const newValue = Number(text);
+      if (!isNaN(newValue)) {
+        setter(newValue);
+      }
+    }
+  };
 
   const [collectedReadings, setCollectedReadings] = useState([]);
   const collectionRef = useRef<{ index: number; battery: number; readings: number[]; time: string; }[]>([]);
@@ -608,16 +619,19 @@ console.log("checkRead:"+checkRead);
     // Generate random values within expected ranges
     let packetIndex = Math.floor(Math.random() * 65536); // 16-bit (0 to 65535)
     let batteryLevel = Math.floor(Math.random() * 101); // 8-bit (0 to 100%)
-    let readingValue1 = Math.floor(Math.random() * 4096); // 12-bit (0 to 4095)
-    let readingValue2 = Math.floor(Math.random() * 4096);
-    let readingValue3 = Math.floor(Math.random() * 4096);
-    let readingValue4 = Math.floor(Math.random() * 4096);
+
+    // Generate sensor readings with a smooth variation
+    let baseValue = 1000 + Math.floor(Math.random() * 500); // Center around 1000
+    let readingValue1 = baseValue + Math.floor(Math.random() * 50);
+    let readingValue2 = baseValue + Math.floor(Math.random() * 50);
+    let readingValue3 = baseValue + Math.floor(Math.random() * 50);
+    let readingValue4 = baseValue + Math.floor(Math.random() * 50);
 
     // Write values into the buffer
     buffer.writeUInt16BE(packetIndex, 0); // First 2 bytes
     buffer.writeUInt8(batteryLevel, 2);   // 3rd byte
 
-    // Pack 12-bit values into the buffer
+    // Pack 12-bit values
     buffer.writeUInt16BE((readingValue1 << 4) | (readingValue2 >> 8), 3);
     buffer.writeUInt16BE(((readingValue2 & 0xFF) << 8) | (readingValue3 >> 4), 5);
     buffer.writeUInt16BE(((readingValue3 & 0xF) << 12) | readingValue4, 7);
@@ -687,10 +701,10 @@ console.log("checkRead:"+checkRead);
             // console.log("Selected Mode", selectedMode);
             
             console.log("IN CUSTOM MODEEEEE", data);
-            // data = generateDummyData();
+            data = generateDummyData();
 
             console.log("DATADATADATA:", data);
-            
+
             // Ensure data is in Buffer format
             let buffer = Buffer.from(data);
 
@@ -698,7 +712,7 @@ console.log("checkRead:"+checkRead);
             let packetIndex = buffer.readUInt16BE(0); // First 2 bytes
             let batteryLevel = buffer.readUInt8(2); // 3rd byte
 
-            let readings = [];
+            let readings: number[] = [];
             let byteOffset = 3;
 
             for (let i = 0; i < 4; i++) {
@@ -710,18 +724,23 @@ console.log("checkRead:"+checkRead);
 
                 byteOffset += 1; // Move half a byte forward
             }
+            console.log("Readings:", readings);
+            console.log("Coefficients:", x1, x2, x3, x4);
 
+            // Transform sensor readings
             const transformedData = readings.map((v) => x1 * v ** 3 + x2 * v ** 2 + x3 * v + x4);
+            console.log("transformedData:", transformedData);
 
+            // Store data for plotting
             setCustomReadResponses((prev) => [
               ...prev,
               {
-                data: hexString,
+                data: buffer.toString('hex'), // Store as hex string
                 index: packetIndex,
                 batteryLevel: batteryLevel,
                 readings: readings,
                 averages: transformedData,
-                time: new Date().toISOString(), // Use toISOString() to include full date and time
+                time: new Date().toISOString(), // Include full date and time
               },
             ]);
 
@@ -784,10 +803,12 @@ console.log("checkRead:"+checkRead);
     }
     setIsReading(true);
     // Calculate the total time between sets in milliseconds
-    const intervalBetweenSets = minutes * 60 * 1000;
+    // const intervalBetweenSets = minutes * 60 * 1000;
+    const intervalBetweenSets = 10 * 1000;
 
     // Calculate the time between individual reads within each set in milliseconds
-    const intervalBetweenReads = seconds * 1000;
+    // const intervalBetweenReads = seconds * 1000;
+    const intervalBetweenReads = 100;
 
     // Calculate the total number of readings to perform within each set
     const totalReadings = numReadings;
@@ -882,10 +903,12 @@ console.log("checkRead:"+checkRead);
 
     setIsReading(true);
     // Calculate the total time between sets in milliseconds
-    const intervalBetweenSets = 6 * 60 * 1000;
+    // const intervalBetweenSets = 6 * 60 * 1000;
+    const intervalBetweenSets = 0.5 * 60 * 1000;
 
     // Calculate the time between individual reads within each set in milliseconds
-    const intervalBetweenReads = 1.5 * 1000;
+    // const intervalBetweenReads = 1.5 * 1000;
+    const intervalBetweenReads = 0.25 * 1000;
 
     // Calculate the total number of readings to perform within each set
     const totalReadings = 4;
@@ -956,6 +979,74 @@ console.log("checkRead:"+checkRead);
     setReadingInterval(interval);
   };
 
+    // Calculate average and update chartData after every 5 minutes
+    useEffect(() => {
+      const interval = setInterval(() => {
+        if (initialTime && nextTime) {
+          console.log(
+            "Checking time passed ....................",
+            initialTime,
+            nextTime
+          );
+          // Check if 5 minutes have passed
+          const currentTime = new Date();
+          console.log(
+            "Current Time:::::::::::: ",
+            currentTime,
+            currentTime >= nextTime
+          );
+          if (currentTime >= nextTime) {
+            // if (true) {
+            console.log("\n\n\n\n\n5 minutes have passed");
+            console.log("customReadResponsescustomReadResponses: ", customReadResponses);
+  
+            // Extract timestamps and values from customReadResponses for plotting
+            // const newChartData = customReadResponses.map((entry) => ({
+            //   name: new Date(entry.time).toLocaleTimeString(), // X-axis: formatted time
+            //   value: entry.averages, // Y-axis: array of computed averages
+            // }));
+  
+            // // Append newChartData to existing chart data
+            // setChartData((prev) => [...prev, ...newChartData]);
+  
+  
+            const totalValues = customReadResponses.flatMap(response => response.averages); // Flatten all values
+  
+            const sum = totalValues.reduce((total, value) => total + value, 0); // Sum all values
+            
+            const average = totalValues.length > 0 ? sum / totalValues.length : 0; // Proper averaging
+            
+            console.log("\n\n\n\nAverage: ", average);
+            console.log("Total values count: ", totalValues.length);
+            
+            setChartData((prevChartData) => [
+              ...prevChartData,
+              {
+                name: nextTime.toISOString(),
+                value: [nextTime.toISOString(), average], // Keep array format as expected
+              },
+            ]);
+  
+  
+            // Save to CSV
+           // appendCSVtoFile(folderPath, fileName, newChartData);
+  
+            // Reset the state for next interval
+            setCustomReadResponses([]);
+  
+            // Update initialTime to nextTime
+            setInitialTime(nextTime);
+  
+            // Set new nextTime (5 minutes ahead)
+            // const newNextTime = new Date(nextTime.getTime() + avgTime * 60 * 1000);
+            const newNextTime = new Date(nextTime.getTime() + 1 * 60 * 1000);
+            setNextTime(newNextTime);
+          }
+        }
+      }, 1000); // Check every second for the time passed
+      return () => clearInterval(interval);
+    }, [initialTime, nextTime, customReadResponses]);
+
   // Calculate average and update chartData after every 5 minutes
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1017,52 +1108,6 @@ console.log("checkRead:"+checkRead);
     return () => clearInterval(interval);
   }, [initialTime, nextTime, autoReadResponses]);
 
-
-  // Calculate average and update chartData after every 5 minutes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (initialTime && nextTime) {
-        console.log(
-          "Checking time passed ....................",
-          initialTime,
-          nextTime
-        );
-        // Check if 5 minutes have passed
-        const currentTime = new Date();
-        console.log(
-          "Current Time:::::::::::: ",
-          currentTime,
-          currentTime >= nextTime
-        );
-        if (currentTime >= nextTime) {
-          console.log("\n\n\n\n\n5 minutes have passed");
-
-          // Extract timestamps and values from customReadResponses for plotting
-          const newChartData = customReadResponses.map((entry) => ({
-            name: new Date(entry.time).toLocaleTimeString(), // X-axis: formatted time
-            value: entry.averages, // Y-axis: array of computed averages
-          }));
-
-          // Append newChartData to existing chart data
-          setChartData((prev) => [...prev, ...newChartData]);
-
-          // Save to CSV
-         // appendCSVtoFile(folderPath, fileName, newChartData);
-
-          // Reset the state for next interval
-          setCustomReadResponses([]);
-
-          // Update initialTime to nextTime
-          setInitialTime(nextTime);
-
-          // Set new nextTime (5 minutes ahead)
-          const newNextTime = new Date(nextTime.getTime() + avgTime * 60 * 1000);
-          setNextTime(newNextTime);
-        }
-      }
-    }, 1000); // Check every second for the time passed
-    return () => clearInterval(interval);
-  }, [initialTime, nextTime, customReadResponses]);
 
   //  Use useEffect to log autoReadResponses whenever it changes
   useEffect(() => {
@@ -1639,105 +1684,62 @@ console.log("checkRead:"+checkRead);
       {checkRead && selectedMode === "Custom" && (
         <View>
           <View style={{ ...Layout.separators }}>
-            {/* Input for X1 */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>X1 Value</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  value={x1 === 0 ? "" : x1.toString()}
-                  onChangeText={(text) => {
-                    const newValue = parseInt(text);
-                    if (!isNaN(newValue) || text === "0") {
-                      setX1(newValue);
-                    } else {
-                      setX1(0);
-                    }
-                  }}
-                  keyboardType="numeric"
-                  placeholder={x1 === 0 ? "Enter X1" : ""}
-                  style={[
-                    styles.input,
-                    isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" },
-                  ]}
-                  editable={!isReading}
-                />
-              </View>
-            </View>
+          <View style={styles.inputContainer}>
+  <Text style={styles.label}>X1 Value</Text>
+  <View style={styles.inputWrapper}>
+    <TextInput
+      value={x1 === 0 ? "" : x1.toString()} // Show empty if 0, but keep value internally
+      onChangeText={(text) => handleInputChange(text, setX1)}
+      keyboardType="numeric"
+      placeholder="Enter X1"
+      style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
+      editable={!isReading}
+    />
+  </View>
+</View>
 
-            {/* Input for X2 */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>X2 Value</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  value={x2 === 0 ? "" : x2.toString()}
-                  onChangeText={(text) => {
-                    const newValue = parseInt(text);
-                    if (!isNaN(newValue) || text === "0") {
-                      setX2(newValue);
-                    } else {
-                      setX2(0);
-                    }
-                  }}
-                  keyboardType="numeric"
-                  placeholder={x2 === 0 ? "Enter X2" : ""}
-                  style={[
-                    styles.input,
-                    isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" },
-                  ]}
-                  editable={!isReading}
-                />
-              </View>
-            </View>
+<View style={styles.inputContainer}>
+  <Text style={styles.label}>X2 Value</Text>
+  <View style={styles.inputWrapper}>
+    <TextInput
+      value={x2 === 0 ? "" : x2.toString()}
+      onChangeText={(text) => handleInputChange(text, setX2)}
+      keyboardType="numeric"
+      placeholder="Enter X2"
+      style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
+      editable={!isReading}
+    />
+  </View>
+</View>
 
-            {/* Input for X3 */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>X3 Value</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  value={x3 === 0 ? "" : x3.toString()}
-                  onChangeText={(text) => {
-                    const newValue = parseInt(text);
-                    if (!isNaN(newValue) || text === "0") {
-                      setX3(newValue);
-                    } else {
-                      setX3(0);
-                    }
-                  }}
-                  keyboardType="numeric"
-                  placeholder={x3 === 0 ? "Enter X3" : ""}
-                  style={[
-                    styles.input,
-                    isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" },
-                  ]}
-                  editable={!isReading}
-                />
-              </View>
-            </View>
+<View style={styles.inputContainer}>
+  <Text style={styles.label}>X3 Value</Text>
+  <View style={styles.inputWrapper}>
+    <TextInput
+      value={x3 === 0 ? "" : x3.toString()}
+      onChangeText={(text) => handleInputChange(text, setX3)}
+      keyboardType="numeric"
+      placeholder="Enter X3"
+      style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
+      editable={!isReading}
+    />
+  </View>
+</View>
 
-            {/* Input for X4 */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>X4 Value</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  value={x4 === 0 ? "" : x4.toString()}
-                  onChangeText={(text) => {
-                    const newValue = parseInt(text);
-                    if (!isNaN(newValue) || text === "0") {
-                      setX4(newValue);
-                    } else {
-                      setX4(0);
-                    }
-                  }}
-                  keyboardType="numeric"
-                  placeholder={x4 === 0 ? "Enter X4" : ""}
-                  style={[
-                    styles.input,
-                    isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" },
-                  ]}
-                  editable={!isReading}
-                />
-              </View>
-            </View>
+<View style={styles.inputContainer}>
+  <Text style={styles.label}>X4 Value</Text>
+  <View style={styles.inputWrapper}>
+    <TextInput
+      value={x4 === 0 ? "" : x4.toString()}
+      onChangeText={(text) => handleInputChange(text, setX4)}
+      keyboardType="numeric"
+      placeholder="Enter X4"
+      style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
+      editable={!isReading}
+    />
+  </View>
+</View>
+
           </View>
           {/* Display the three buttons */}
           <View style={[styles.insideContainer]}>
