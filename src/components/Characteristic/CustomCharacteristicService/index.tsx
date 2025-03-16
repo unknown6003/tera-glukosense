@@ -1,35 +1,3 @@
-/*
- * Copyright (c) 2023, Texas Instruments Incorporated
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * *  Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * *  Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * *  Neither the name of Texas Instruments Incorporated nor the names of
- *    its contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
 import {
   View,
   NativeEventEmitter,
@@ -44,6 +12,7 @@ import {
   PermissionsAndroid,
   Linking,
 } from "react-native";
+import Share from 'react-native-share';
 import { useFocusEffect } from "@react-navigation/native";
 import { Text } from "../../Themed";
 import React, {
@@ -1084,8 +1053,8 @@ const chartOptions = useMemo(
     yAxis: {
       type: "value",
       min: 0,
-      max: Math.max(...chartData.map((item) => item.value[1])) + 10, // ✅ Dynamic max
-      interval: Math.max(...chartData.map((item) => item.value[1])) / 10,
+      max: Math.max(...chartData.map((item) => Number(item.value[1]))) + 10, // ✅ Dynamic max
+      interval: Math.max(...chartData.map((item) => Number(item.value[1]))) / 10,
       axisLine: {
         show: true,
       },
@@ -1228,7 +1197,41 @@ const chartOptions = useMemo(
               editable={!isReading}
             />
           </View>
+            
         </View>
+
+        <View style={{ paddingTop: 10 }}>
+            {Boolean(fileName) && (
+             <TouchableOpacity
+             onPress={async () => {
+               try {
+                 const filePath = `${folderPath}/${fileName}.csv`;
+           
+                 // Check if the file exists
+                 const fileExists = await RNFS.exists(filePath);
+                 if (!fileExists) {
+                   Alert.alert("Error", "File does not exist.");
+                   return;
+                 }
+           
+                 const options = {
+                   url: `file://${filePath}`, // Correct format for local file
+                   type: 'text/csv', // MIME type for CSV files
+                   failOnCancel: false, // Don't throw an error if the user cancels
+                 };
+           
+                 await Share.open(options);
+               } catch (error) {
+                 console.error("Error sharing file:", error);
+                 Alert.alert("Error", "Could not share the file.");
+               }
+             }}
+             style={[styles.StartButton]}
+           >
+             <Text style={{ fontWeight: "bold" }}>Download File</Text>
+           </TouchableOpacity>
+            )}
+            </View>
 
           </View>
           {/* Display the three buttons */}
@@ -1266,6 +1269,12 @@ const chartOptions = useMemo(
               >
                 <Text style={[{ fontWeight: "bold" }]}>Show Files</Text>
               </TouchableOpacity>
+
+               {sensorData.length > 0 && (
+                <View style={{ marginTop: 5 }}>
+                    <Text style={{ fontWeight: "bold" }}>🔋 {sensorData[sensorData.length - 1].batteryLevel}%</Text>
+                </View>
+              )}
             </View>
 
             <View>
@@ -1375,7 +1384,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.lightGray,
     borderWidth: 0,
     borderBottomWidth: 0,
-    marginRight: "10%", // Add margin-right for spacing between buttons
+    marginRight: "5%", // Add margin-right for spacing between buttons
     marginLeft: "5%", // Add margin-left for spacing between buttons
   },
   inputContainer: {

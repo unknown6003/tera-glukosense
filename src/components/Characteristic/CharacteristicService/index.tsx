@@ -136,15 +136,6 @@ type AutoResponse = {
   time: string;
 };
 
-type CustomResponse = {
-  data: string;
-  index: number;
-  batteryLevel: number;
-  readings: number[];
-  averages: number[];
-  time: string;
-};
-
 const CharacteristicService: React.FC<Props> = ({
   peripheralId,
   serviceUuid: serviceUuid,
@@ -182,7 +173,6 @@ const CharacteristicService: React.FC<Props> = ({
   let checkWriteWithoutRsp =
     Object.values(char.properties).indexOf("WriteWithoutResponse") > -1;
   let checkRead = Object.values(char.properties).indexOf("Read") > -1;
-console.log("checkRead:"+checkRead);
 
   let propertiesString = "";
   if (checkRead) {
@@ -227,7 +217,7 @@ console.log("checkRead:"+checkRead);
   const [minutes, setMinutes] = useState<number>(1);
   const [seconds, setSeconds] = useState<number>(1);
   const [numReadings, setNumReadings] = useState<number>(60);
-  const [avgTime, setAvgTime] = useState<number>(0.05);
+  const [avgTime, setAvgTime] = useState<number>(5);
   const [isReading, setIsReading] = useState<boolean>(false);
   const [readingInterval, setReadingInterval] = useState<NodeJS.Timeout | null>(
     null
@@ -236,9 +226,6 @@ console.log("checkRead:"+checkRead);
   // const [startDate, setStartDate] = useState<Date | null>(null);
   // const [endDate, setEndDate] = useState<Date | null>(null);
   const [autoReadResponses, setAutoReadResponses] = useState<AutoResponse[]>(
-    []
-  );
-  const [customReadResponses, setCustomReadResponses] = useState<CustomResponse[]>(
     []
   );
   const [arrayLength, setArrayLength] = useState<number>(0);
@@ -254,28 +241,6 @@ console.log("checkRead:"+checkRead);
   const [nextTime, setNextTime] = useState<Date | null>(null);
 
   // ************************* Auto Read Constants End ************************* //
-
-  // CUSTOM MODE STATES START //
-  const [x1, setX1] = useState<number>(1);
-  const [x2, setX2] = useState<number>(1);
-  const [x3, setX3] = useState<number>(1);
-  const [x4, setX4] = useState<number>(1);
-  
-  const handleInputChange = (text: string, setter: React.Dispatch<React.SetStateAction<number>>) => {
-    if (text === "") {
-      setter(0); // Default to 0 instead of null
-    } else {
-      const newValue = Number(text);
-      if (!isNaN(newValue)) {
-        setter(newValue);
-      }
-    }
-  };
-
-  const [collectedReadings, setCollectedReadings] = useState([]);
-  const collectionRef = useRef<{ index: number; battery: number; readings: number[]; time: string; }[]>([]);
-  const [isCollecting, setIsCollecting] = useState(false);
-
 
   // ************************* Start Folder Creation ************************** //
 
@@ -610,37 +575,6 @@ console.log("checkRead:"+checkRead);
   }, [notificationSwitch]);
 
   // ******************************** Manual Read ******************************** //
-
-
-  function generateDummyData() {
-    // Create a buffer of 9 bytes
-    let buffer = Buffer.alloc(9);
-
-    // Generate random values within expected ranges
-    let packetIndex = Math.floor(Math.random() * 65536); // 16-bit (0 to 65535)
-    let batteryLevel = Math.floor(Math.random() * 101); // 8-bit (0 to 100%)
-
-    // Generate sensor readings with a smooth variation
-    let baseValue = 1000 + Math.floor(Math.random() * 500); // Center around 1000
-    let readingValue1 = baseValue + Math.floor(Math.random() * 50);
-    let readingValue2 = baseValue + Math.floor(Math.random() * 50);
-    let readingValue3 = baseValue + Math.floor(Math.random() * 50);
-    let readingValue4 = baseValue + Math.floor(Math.random() * 50);
-
-    // Write values into the buffer
-    buffer.writeUInt16BE(packetIndex, 0); // First 2 bytes
-    buffer.writeUInt8(batteryLevel, 2);   // 3rd byte
-
-    // Pack 12-bit values
-    buffer.writeUInt16BE((readingValue1 << 4) | (readingValue2 >> 8), 3);
-    buffer.writeUInt16BE(((readingValue2 & 0xFF) << 8) | (readingValue3 >> 4), 5);
-    buffer.writeUInt16BE(((readingValue3 & 0xF) << 12) | readingValue4, 7);
-
-    return buffer;
-}
-
-
-
   const handleReadButton = useCallback(() => {
     console.log(
       "handleReadButton selectedFormat on mode selectedMode",
@@ -697,53 +631,6 @@ console.log("checkRead:"+checkRead);
                 time: new Date().toISOString(), // Use toISOString() to include full date and time
               },
             ]);
-          }  else if (selectedMode === "Custom") {
-            // console.log("Selected Mode", selectedMode);
-            
-            console.log("IN CUSTOM MODEEEEE", data);
-            data = generateDummyData();
-
-            console.log("DATADATADATA:", data);
-
-            // Ensure data is in Buffer format
-            let buffer = Buffer.from(data);
-
-            // Extract values based on the 9-byte structure
-            let packetIndex = buffer.readUInt16BE(0); // First 2 bytes
-            let batteryLevel = buffer.readUInt8(2); // 3rd byte
-
-            let readings: number[] = [];
-            let byteOffset = 3;
-
-            for (let i = 0; i < 4; i++) {
-                let byte1 = buffer.readUInt8(byteOffset);
-                let byte2 = buffer.readUInt8(byteOffset + 1);
-
-                let reading = ((byte1 << 4) | (byte2 >> 4)) & 0xFFF; // Extract 12-bit value
-                readings.push(reading);
-
-                byteOffset += 1; // Move half a byte forward
-            }
-            console.log("Readings:", readings);
-            console.log("Coefficients:", x1, x2, x3, x4);
-
-            // Transform sensor readings
-            const transformedData = readings.map((v) => x1 * v ** 3 + x2 * v ** 2 + x3 * v + x4);
-            console.log("transformedData:", transformedData);
-
-            // Store data for plotting
-            setCustomReadResponses((prev) => [
-              ...prev,
-              {
-                data: buffer.toString('hex'), // Store as hex string
-                index: packetIndex,
-                batteryLevel: batteryLevel,
-                readings: readings,
-                averages: transformedData,
-                time: new Date().toISOString(), // Include full date and time
-              },
-            ]);
-
           }
         })
         .catch((error) => {
@@ -803,12 +690,10 @@ console.log("checkRead:"+checkRead);
     }
     setIsReading(true);
     // Calculate the total time between sets in milliseconds
-    // const intervalBetweenSets = minutes * 60 * 1000;
-    const intervalBetweenSets = 10 * 1000;
+    const intervalBetweenSets = minutes * 60 * 1000;
 
     // Calculate the time between individual reads within each set in milliseconds
-    // const intervalBetweenReads = seconds * 1000;
-    const intervalBetweenReads = 100;
+    const intervalBetweenReads = seconds * 1000;
 
     // Calculate the total number of readings to perform within each set
     const totalReadings = numReadings;
@@ -880,173 +765,6 @@ console.log("checkRead:"+checkRead);
     setReadingInterval(interval);
   };
 
-
-
-  // ******************************** Custom Read ******************************** //
-
-  const handleCustomReading = () => {
-    console.log(
-      "Peripheral ID: ",
-      peripheralId,
-      serviceUuid,
-      char.characteristic
-    );
-
-    if (autoReadResponses.length > 0) {
-      setAutoReadResponses([]);
-    }
-
-    if (x1 === 0 || x2 === 0 || x3 === 0 || x4 === 0) {
-      Alert.alert("Invalid Input", "Please enter valid input");
-      return;
-    }
-
-    setIsReading(true);
-    // Calculate the total time between sets in milliseconds
-    // const intervalBetweenSets = 6 * 60 * 1000;
-    const intervalBetweenSets = 0.5 * 60 * 1000;
-
-    // Calculate the time between individual reads within each set in milliseconds
-    // const intervalBetweenReads = 1.5 * 1000;
-    const intervalBetweenReads = 0.25 * 1000;
-
-    // Calculate the total number of readings to perform within each set
-    const totalReadings = 4;
-
-    // Initialize initialTime with the current time when the Read button is clicked
-    const currentTime = new Date();
-    setInitialTime(currentTime);
-    // Initialize nextTime with the time after 5 minutes from initialTime
-    const next = new Date(currentTime.getTime() + avgTime * 60 * 1000);
-    setNextTime(next);
-    console.log("Time now and next: ", currentTime, next);
-
-    // Create a new file for the current set of readings
-    const dateString = currentTime.toISOString().slice(0, 10); // Extract date in YYYY-MM-DD format
-    const timeString = currentTime.toTimeString().slice(0, 8); // Extract time in HH:MM:SS format
-    const fileName = sanitizeFilename(
-      `${peripheralId}_${dateString}_${timeString}`
-    );
-    const deviceInfo = `${peripheralId},${serviceUuid},${serviceName}`;
-    const headerRow = "Index,data,time,date,avg";
-    const filePath = `${folderPath}/${fileName}.csv`;
-    setFileName(fileName);
-    console.log("File Path: ", filePath);
-    // check if the directory exists, and create it if it doesn't
-    RNFS.exists(folderPath)
-      .then((exists) => {
-        if (!exists) {
-          RNFS.mkdir(folderPath, { NSURLIsExcludedFromBackupKey: true });
-        }
-      })
-      .catch((error) => {
-        console.error("Error checking directory:", error);
-      });
-
-    RNFS.writeFile(filePath, `${deviceInfo}\n${headerRow}\n`, "utf8")
-      .then(() => {
-        console.log("CSV file created successfully:", filePath);
-      })
-      .catch((error) => {
-        console.error("Error creating CSV file:", error);
-      });
-
-    const performReadings = () => {
-      console.log("Performing readings");
-      // Loop to perform individual readings
-      for (let i = 0; i < totalReadings; i++) {
-        const timeout = setTimeout(() => {
-          // Perform the reading action here
-          console.log(`Reading ${i + 1}`);
-          handleReadButton();
-          console.log("Readings performed");
-        }, i * intervalBetweenReads);
-        setTimeouts((prevTimeouts) => [...prevTimeouts, timeout]); // Store the timeout reference
-      }
-    };
-
-    // Function to start the readings at the specified intervals
-    const startReadingIntervals = () => {
-      performReadings();
-
-      return setInterval(() => {
-        console.log("Starting next set of readings ");
-        performReadings();
-      }, intervalBetweenSets + intervalBetweenReads);
-    };
-
-    const interval = startReadingIntervals();
-    setReadingInterval(interval);
-  };
-
-    // Calculate average and update chartData after every 5 minutes
-    useEffect(() => {
-      const interval = setInterval(() => {
-        if (initialTime && nextTime) {
-          console.log(
-            "Checking time passed ....................",
-            initialTime,
-            nextTime
-          );
-          // Check if 5 minutes have passed
-          const currentTime = new Date();
-          console.log(
-            "Current Time:::::::::::: ",
-            currentTime,
-            currentTime >= nextTime
-          );
-          if (currentTime >= nextTime) {
-            // if (true) {
-            console.log("\n\n\n\n\n5 minutes have passed");
-            console.log("customReadResponsescustomReadResponses: ", customReadResponses);
-  
-            // Extract timestamps and values from customReadResponses for plotting
-            // const newChartData = customReadResponses.map((entry) => ({
-            //   name: new Date(entry.time).toLocaleTimeString(), // X-axis: formatted time
-            //   value: entry.averages, // Y-axis: array of computed averages
-            // }));
-  
-            // // Append newChartData to existing chart data
-            // setChartData((prev) => [...prev, ...newChartData]);
-  
-  
-            const totalValues = customReadResponses.flatMap(response => response.averages); // Flatten all values
-  
-            const sum = totalValues.reduce((total, value) => total + value, 0); // Sum all values
-            
-            const average = totalValues.length > 0 ? sum / totalValues.length : 0; // Proper averaging
-            
-            console.log("\n\n\n\nAverage: ", average);
-            console.log("Total values count: ", totalValues.length);
-            
-            setChartData((prevChartData) => [
-              ...prevChartData,
-              {
-                name: nextTime.toISOString(),
-                value: [nextTime.toISOString(), average], // Keep array format as expected
-              },
-            ]);
-  
-  
-            // Save to CSV
-           // appendCSVtoFile(folderPath, fileName, newChartData);
-  
-            // Reset the state for next interval
-            setCustomReadResponses([]);
-  
-            // Update initialTime to nextTime
-            setInitialTime(nextTime);
-  
-            // Set new nextTime (5 minutes ahead)
-            // const newNextTime = new Date(nextTime.getTime() + avgTime * 60 * 1000);
-            const newNextTime = new Date(nextTime.getTime() + 1 * 60 * 1000);
-            setNextTime(newNextTime);
-          }
-        }
-      }, 1000); // Check every second for the time passed
-      return () => clearInterval(interval);
-    }, [initialTime, nextTime, customReadResponses]);
-
   // Calculate average and update chartData after every 5 minutes
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1107,7 +825,6 @@ console.log("checkRead:"+checkRead);
     }, 1000); // Check every second for the time passed
     return () => clearInterval(interval);
   }, [initialTime, nextTime, autoReadResponses]);
-
 
   //  Use useEffect to log autoReadResponses whenever it changes
   useEffect(() => {
@@ -1679,111 +1396,6 @@ console.log("checkRead:"+checkRead);
           )}
         </View>
       )}
-
-
-      {checkRead && selectedMode === "Custom" && (
-        <View>
-          <View style={{ ...Layout.separators }}>
-          <View style={styles.inputContainer}>
-  <Text style={styles.label}>X1 Value</Text>
-  <View style={styles.inputWrapper}>
-    <TextInput
-      value={x1 === 0 ? "" : x1.toString()} // Show empty if 0, but keep value internally
-      onChangeText={(text) => handleInputChange(text, setX1)}
-      keyboardType="numeric"
-      placeholder="Enter X1"
-      style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-      editable={!isReading}
-    />
-  </View>
-</View>
-
-<View style={styles.inputContainer}>
-  <Text style={styles.label}>X2 Value</Text>
-  <View style={styles.inputWrapper}>
-    <TextInput
-      value={x2 === 0 ? "" : x2.toString()}
-      onChangeText={(text) => handleInputChange(text, setX2)}
-      keyboardType="numeric"
-      placeholder="Enter X2"
-      style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-      editable={!isReading}
-    />
-  </View>
-</View>
-
-<View style={styles.inputContainer}>
-  <Text style={styles.label}>X3 Value</Text>
-  <View style={styles.inputWrapper}>
-    <TextInput
-      value={x3 === 0 ? "" : x3.toString()}
-      onChangeText={(text) => handleInputChange(text, setX3)}
-      keyboardType="numeric"
-      placeholder="Enter X3"
-      style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-      editable={!isReading}
-    />
-  </View>
-</View>
-
-<View style={styles.inputContainer}>
-  <Text style={styles.label}>X4 Value</Text>
-  <View style={styles.inputWrapper}>
-    <TextInput
-      value={x4 === 0 ? "" : x4.toString()}
-      onChangeText={(text) => handleInputChange(text, setX4)}
-      keyboardType="numeric"
-      placeholder="Enter X4"
-      style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-      editable={!isReading}
-    />
-  </View>
-</View>
-
-          </View>
-          {/* Display the three buttons */}
-          <View style={[styles.insideContainer]}>
-              <TouchableOpacity
-                onPress={handleCustomReading}
-                disabled={isReading}
-                style={[styles.StartButton]}
-              >
-                <Text
-                  style={[
-                    isReading ? { color: "gray" } : { fontWeight: "bold" },
-                  ]}
-                >
-                  Read
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleStopReading}
-                style={[styles.StartButton]}
-                disabled={!isReading}
-              >
-                <Text
-                  style={[
-                    !isReading ? { color: "gray" } : { fontWeight: "bold" },
-                  ]}
-                >
-                  Stop
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleShowFiles}
-                style={[styles.StartButton]}
-              >
-                <Text style={[{ fontWeight: "bold" }]}>Show Files</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View>
-                <ChartComponent option={chartOptions} />
-            </View>
-        </View>
-      )}
-
 
       {checkNotify && (
         <View>
