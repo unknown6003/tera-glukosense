@@ -12,7 +12,6 @@ import DeviceInfo from 'react-native-device-info';
 import { LogLevel, DeviceName, Step, StepsIDs, TestResult, TestData, increaseProgress, increaseRound, setMTUSize, write, read, handleExportLogs, handleExportResults, getNumOfPassed, TestParams, data_stream, TEST_CASE, simple_peripheral } from '../testsUtils';
 import TestStep from '../TestStep';
 import ActionButtons from '../ActionButtons';
-import LoaderKit from 'react-native-loader-kit'
 import IdleTimerManager from 'react-native-idle-timer';
 import { ScrollView } from 'react-native-gesture-handler';
 
@@ -584,11 +583,7 @@ const GattTestScenario: React.FC<Props> = ({ testService, peripheralId, peripher
             <View style={[styles.stepsContainer]}>
                 {loading && (
                     <View style={{ alignSelf: 'center', marginTop: 30 }}>
-                        <LoaderKit
-                            style={{ width: 50, height: 50 }}
-                            name={'BallBeat'}
-                            color={'black'}
-                        />
+                        
                     </View>
                 )}
                 <ScrollView>
