@@ -185,7 +185,8 @@ console.log("checkRead:"+checkRead);
   const [readResponse, setReadResponse] = useState<Response[]>([]);
   const [writeResponse, setWriteResponse] = useState<Response[]>([]);
   const [notifyResponse, setNotifyResponse] = useState<Response[]>([]);
-
+  const [hexStringState, setHexStringState] = useState<string>("");
+  
   const writeTextInputRef = useRef({});
 
   let initialFocus = useRef<boolean>(true);
@@ -227,9 +228,9 @@ console.log("checkRead:"+checkRead);
 
   const [isDownloadEnabled, setIsDownloadEnabled] = useState<boolean>(false);
 
-  const [x1, setX1] = useState<number>(1);
-  const [x2, setX2] = useState<number>(1);
-  const [x3, setX3] = useState<number>(1);
+  const [x1, setX1] = useState<number>(0.001);
+  const [x2, setX2] = useState<number>(0.01);
+  const [x3, setX3] = useState<number>(0.1);
   const [x4, setX4] = useState<number>(1);
   const [sensorData, setSensorData] = useState<
   { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number,timeString: string, dateString: string, data: any }[]
@@ -705,6 +706,39 @@ function generateDummyData(packetCount: number = 5): number[][] {
       });
   }, [selectedFormat, selectedMode]);
 
+
+  const handlePerMinuteRead = useCallback(() => {
+    if (!char?.properties || !("Read" in char.properties)) {
+      console.log("Read not supported by this characteristic");
+      return;
+    }
+  
+    BleManager.read(peripheralId, serviceUuid, char.characteristic)
+      .then((data) => {
+        if (!data || data.length === 0) {
+          console.log("Received empty data from BLE read");
+          return;
+        }
+  
+        let hexString;
+        if (selectedFormat === "UTF-8") {
+          hexString = Buffer.from(data).toString("utf8");
+        } else if (selectedFormat === "Dec") {
+          hexString = data.toString();
+        } else {
+          hexString = Buffer.from(data).toString("hex");
+        }
+  
+        console.log(`handleReadButton: converted to ${selectedFormat} ${selectedMode} `, hexString);
+        setHexStringState(hexString);
+  
+  
+      })
+      .catch((error) => {
+        console.log("read error: ", error);
+      });
+  }, []);
+
     // Filter the chartData based on the horizontalTickCount
     useEffect(() => {
       console.log(
@@ -937,6 +971,24 @@ useEffect(() => {
   
       setTimeouts((prevTimeouts) => [...prevTimeouts, readLoop]); // Store timeout reference
     };
+
+
+    const performReadingsEveryMinute = () => {
+      console.log("⏳ Listening for 10 seconds...");
+      const startTime = Date.now();
+  
+      const readLoop = setInterval(() => {
+        if (Date.now() - startTime >= listenDuration) {
+          clearInterval(readLoop);
+          console.log("🛑 Stopping readings after 10 seconds.");
+        } else {
+          handlePerMinuteRead();
+        }
+      }, readFrequency);
+  
+      setTimeouts((prevTimeouts) => [...prevTimeouts, readLoop]); // Store timeout reference
+    };
+  
   
     // Schedule the first listening session exactly when 'nextTime' arrives
     const firstReadDelay = 0;
@@ -948,6 +1000,13 @@ useEffect(() => {
       }, intervalBetweenSets);
       setReadingInterval(interval);
     }, firstReadDelay);
+
+    // Timer to execute performReadingsEveryMinute every minute
+    const minuteInterval = setInterval(() => {
+      performReadingsEveryMinute();
+    }, 60000); // 60000 ms = 1 minute
+
+    setTimeouts((prevTimeouts) => [...prevTimeouts, minuteInterval]); // Store timeout reference
   };
   
 
@@ -1349,11 +1408,7 @@ const chartOptions = useMemo(
                 <Text style={[{ fontWeight: "bold" }]}>Show Files</Text>
               </TouchableOpacity>
 
-               {sensorData.length > 0 && (
-                <View style={{ marginTop: 5 }}>
-                    <Text style={{ fontWeight: "bold" }}>🔋 {sensorData[sensorData.length - 1].batteryLevel}%</Text>
-                </View>
-              )}
+               
             </View>
 
             {isReading && (
@@ -1393,6 +1448,68 @@ const chartOptions = useMemo(
                               <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 24 ? { color: "gray" } : { color: "black" }]}>24h</Text>
                             </TouchableOpacity >
                           </View>
+
+                          {latestReadingAverage && (
+                            <View>
+                              <View style={[styles.container]}>
+                                <View>
+                                  <View
+                                    style={{
+                                      alignContent: "center",
+                                      alignItems: "center",
+                                      flexDirection: "row",
+                                    }}
+                                  >
+                                    <View style={{ flexDirection: "row" }}>
+                                      <Text
+                                        style={{
+                                          fontWeight: "bold",
+                                          paddingLeft: 12,
+                                          paddingRight: 20,
+                                        }}
+                                      >
+                                        {latestReadingAverage}
+                                      </Text>
+                                      {sensorData.length > 0 && (
+                <View style={{ marginTop: 0 }}>
+                    <Text style={{ fontWeight: "bold" }}>🔋 {sensorData[sensorData.length - 1].batteryLevel}%</Text>
+                </View>
+              )}
+                                    </View>
+
+                                   
+                                    
+                                  </View>
+
+                                  <View
+                                    style={{
+                                      alignContent: "center",
+                                      alignItems: "center",
+                                      flexDirection: "row",
+                                    }}
+                                  >
+                                    
+
+                                    <View style={{ flexDirection: "row" }}>
+                                      <Text
+                                        style={{
+                                          fontWeight: "bold",
+                                          paddingLeft: 12,
+                                          paddingRight: 20,
+                                        }}
+                                      >
+                                        Data: {hexStringState}
+                                      </Text>
+                                    </View>
+                                    
+                                  </View>
+                                </View>
+                              </View>
+                              <View style={{ paddingLeft: 25, paddingBottom: 20 }}>
+                                <ServiceResponse responseArray={notifyResponse} />
+                              </View>
+                            </View>
+                          )}
             
                           {/* Chart component */}
                           <View>
@@ -1408,37 +1525,7 @@ const chartOptions = useMemo(
       )}
 
 
-      {latestReadingAverage && (
-        <View>
-          <View style={[styles.container]}>
-            <View>
-              <View
-                style={{
-                  alignContent: "center",
-                  alignItems: "center",
-                  flexDirection: "row",
-                }}
-              >
-                <View style={{ flexDirection: "row" }}>
-                  <Text
-                    style={{
-                      fontWeight: "bold",
-                      paddingLeft: 12,
-                      paddingRight: 20,
-                    }}
-                  >
-                    {latestReadingAverage}
-                  </Text>
-                </View>
-                
-              </View>
-            </View>
-          </View>
-          <View style={{ paddingLeft: 25, paddingBottom: 20 }}>
-            <ServiceResponse responseArray={notifyResponse} />
-          </View>
-        </View>
-      )}
+      
 
       {checkNotify && (
         <View>
