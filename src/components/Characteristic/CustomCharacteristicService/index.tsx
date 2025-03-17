@@ -630,7 +630,7 @@ function generateDummyData(packetCount: number = 5): number[][] {
           hexString = Buffer.from(data).toString("hex");
         }
   
-        console.log(`handleReadButton: converted to ${selectedFormat} ${selectedMode} `, hexString);
+        console.log(`handleReadButtonddd: converted to ${selectedFormat} ${selectedMode} `, hexString);
   
         if (selectedMode === "Custom") {
           console.log("Custom mode selected");
@@ -707,7 +707,7 @@ function generateDummyData(packetCount: number = 5): number[][] {
   }, [selectedFormat, selectedMode]);
 
 
-  const handlePerMinuteRead = useCallback(() => {
+  const handlePerMinuteRead = () => {
     if (!char?.properties || !("Read" in char.properties)) {
       console.log("Read not supported by this characteristic");
       return;
@@ -729,7 +729,7 @@ function generateDummyData(packetCount: number = 5): number[][] {
           hexString = Buffer.from(data).toString("hex");
         }
   
-        console.log(`handleReadButton: converted to ${selectedFormat} ${selectedMode} `, hexString);
+        console.log(`handleReadButtonssss: converted to ${selectedFormat} ${selectedMode} `, hexString);
         setHexStringState(hexString);
   
   
@@ -737,7 +737,7 @@ function generateDummyData(packetCount: number = 5): number[][] {
       .catch((error) => {
         console.log("read error: ", error);
       });
-  }, []);
+};
 
     // Filter the chartData based on the horizontalTickCount
     useEffect(() => {
@@ -912,9 +912,14 @@ useEffect(() => {
     // const readFrequency = 100; // Read every 100ms within the listen window
 
     // ⏳ **Reduced Interval & Duration for Faster Testing**
-    const intervalBetweenSets = 15000; // ⏳ **Every 2 seconds instead of 6 minutes**
-    const listenDuration = 1000; // ⏳ **Listen for 5 seconds instead of 10 seconds**
-    const readFrequency = 100; // Read every 100ms
+    // const intervalBetweenSets = 15000; // ⏳ **Every 2 seconds instead of 6 minutes**
+    // const listenDuration = 1000; // ⏳ **Listen for 5 seconds instead of 10 seconds**
+    // const readFrequency = 100; // Read every 100ms
+
+
+       const intervalBetweenSets = 6 * 60 * 1000; // 6 minutes
+    const listenDuration = 1000; // 10 seconds
+    const readFrequency = 100; // Read every 100ms within the listen window
   
     // Set initial timestamps
     const currentTime = new Date();
@@ -1001,12 +1006,13 @@ useEffect(() => {
       setReadingInterval(interval);
     }, firstReadDelay);
 
-    // Timer to execute performReadingsEveryMinute every minute
-    const minuteInterval = setInterval(() => {
-      performReadingsEveryMinute();
-    }, 60000); // 60000 ms = 1 minute
 
-    setTimeouts((prevTimeouts) => [...prevTimeouts, minuteInterval]); // Store timeout reference
+    setTimeout(() => {
+      performReadingsEveryMinute();
+      setInterval(() => {
+        performReadingsEveryMinute();
+      }, 6000);
+    }, firstReadDelay);
   };
   
 
