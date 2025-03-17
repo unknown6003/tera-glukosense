@@ -196,6 +196,7 @@ console.log("checkRead:"+checkRead);
   const [numReadings, setNumReadings] = useState<number>(60);
   const [avgTime, setAvgTime] = useState<number>(0.05);
   const [isReading, setIsReading] = useState<boolean>(false);
+  const [latestReadingAverage, setLatestReadingAverage] = useState<number | null>(null);
   const [readingInterval, setReadingInterval] = useState<NodeJS.Timeout | null>(
     null
   );
@@ -639,10 +640,10 @@ function generateDummyData(packetCount: number = 5): number[][] {
           // Assuming multiple packets are received in `data`
           const packets = chunkArray(data, 9); // Assuming each packet is 9 bytes long
           console.log("packets",packets);
-          const processedPackets = packets.map((packet) => {
+            const processedPackets = packets.map((packet) => {
             const packetIndex = (packet[0] << 8) | packet[1]; // 16-bit index
             const batteryLevel = packet[2]; // 8-bit battery level
-  
+        
             // Extract 12-bit readings
             const readings = [
               ((packet[3] << 4) | (packet[4] >> 4)) & 0xFFF,
@@ -650,12 +651,12 @@ function generateDummyData(packetCount: number = 5): number[][] {
               ((packet[6] << 4) | (packet[7] >> 4)) & 0xFFF,
               (((packet[7] & 0xF) << 8) | packet[8]) & 0xFFF,
             ];
-  
+        
             // Compute transformed readings
             const transformedReadings = readings.map((v) =>
               x1 * Math.pow(v, 3) + x2 * Math.pow(v, 2) + x3 * v + x4
             );
-  
+        
             // Compute average of transformed readings
             const avgReading =
               transformedReadings.reduce((sum, val) => sum + val, 0) / transformedReadings.length;
@@ -663,8 +664,13 @@ function generateDummyData(packetCount: number = 5): number[][] {
             const timeInString = new Date(); 
             const dateString = timeInString.toLocaleDateString(); // Extract date in MM/DD/YYYY format
             const timeString = timeInString.toTimeString().slice(0, 8); 
+            
             return { packetIndex, batteryLevel, readings, avgReading,timeString, dateString ,data };
-          });
+            });
+
+            if (processedPackets.length > 0) {
+            setLatestReadingAverage(processedPackets[processedPackets.length - 1].avgReading);
+            }
           console.log("processedPackets",processedPackets);
           // Store data in state (sorting & deduplication)
           // setSensorData((prevData) => {
@@ -698,6 +704,54 @@ function generateDummyData(packetCount: number = 5): number[][] {
         console.log("read error: ", error);
       });
   }, [selectedFormat, selectedMode]);
+
+    // Filter the chartData based on the horizontalTickCount
+    useEffect(() => {
+      console.log(
+        "chartData updated                 : ",
+        chartData,
+        chartData.length
+      );
+  
+      if (
+        horizontalTickCount === 1 ||
+        horizontalTickCount === 6 ||
+        horizontalTickCount === 24
+      ) {
+        const currentTime = new Date();
+        const startTime = new Date(
+          currentTime.getTime() - horizontalTickCount * 60 * 60 * 1000
+        );
+  
+        console.log(
+          "Filtering data: ",
+          horizontalTickCount,
+          startTime,
+          currentTime
+        );
+  
+        // Filter the chartData based on the startTime and currentTime
+        const filteredChartData = chartData.filter(
+          (response) =>
+            new Date(response.name) >= startTime &&
+            new Date(response.name) <= currentTime
+        );
+  
+        // Check if the filtered chartData is different from the current chartData
+        const isChartDataChanged =
+          JSON.stringify(chartData) !== JSON.stringify(filteredChartData);
+  
+        if (isChartDataChanged) {
+          // Update the chartData state with the filteredChartData
+          setFilteredChartData(filteredChartData);
+        }
+      }
+      else {
+        console.log("HorizontalTick count is 0 ******************************")
+        setFilteredChartData(chartData);
+  
+      }
+    }, [chartData, horizontalTickCount]);
 
 
   useEffect(() => {
@@ -840,11 +894,10 @@ useEffect(() => {
     const dateString = currentTime.toISOString().slice(0, 10);
     const timeString = currentTime.toTimeString().slice(0, 8);
     //const fileName = sanitizeFilename(`${peripheralId}_${dateString}_${timeString}`);
-    const fileName = "myblefile";
+    const fileName = sanitizeFilename(`${peripheralId}_${"myblefile"}`);//"myblefile";
     const filePath = `${folderPath}/${fileName}.csv`;
     setFileName(fileName);
 
-    retrieveAndSetSensorData(filePath);
   
     RNFS.exists(folderPath).then((exists) => {
       if (!exists) {
@@ -865,6 +918,8 @@ useEffect(() => {
         console.log("CSV file already exists, not adding headers.");
       }
     });
+
+    retrieveAndSetSensorData(filePath);
   
     // Function to perform continuous readings for 10 seconds
     const performReadings = () => {
@@ -1019,21 +1074,57 @@ const chartOptions = useMemo(
       start: 0,
       type: "slider",
     },
+    // xAxis: {
+    //   type: "time",
+    //   splitNumber: 3,
+    //   splitLine: {
+    //     show: true,
+    //     lineStyle: {
+    //       color: "yellow",
+    //       opacity: 0.1,
+    //     },
+    //   },
+    //   axisLabel: {
+    //     formatter: (value: number) => { 
+    //       const date = new Date(value);
+    //       return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+    //     },
+    //     margin: 11.5,
+    //     hideOverlap: true,
+    //   },
+    // },
     xAxis: {
       type: "time",
       splitNumber: 3,
       splitLine: {
         show: true,
         lineStyle: {
-          color: "yellow",
-          opacity: 0.1,
-        },
+          color: 'yellow', 
+          opacity: 0.1,    
+        }
       },
       axisLabel: {
-        formatter: (value: number) => { 
+        formatter: function (value: any, index: any, name: any) {
+          if (chartData.length === 1) {
+            const date = new Date(chartData[0].name);
+            const hours = date.getHours().toString().padStart(2, "0");
+            const minutes = date.getMinutes().toString().padStart(2, "0");
+            // console.log("hours: ", hours, "minutes: ", minutes);
+            if (horizontalTickCount === 6 || horizontalTickCount === 24)
+              return `${hours}`;
+            return `${hours}:${minutes}`;
+          }
           const date = new Date(value);
-          return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+          const hours = date.getHours().toString().padStart(2, "0");
+          const minutes = date.getMinutes().toString().padStart(2, "0");
+          const seconds = date.getSeconds().toString().padStart(2, "0");
+          // console.log("hours: ", hours, "minutes: ", minutes);
+          if (horizontalTickCount === 6 || horizontalTickCount === 24)
+            return `${hours}`;
+          return `${hours}:${minutes}`;
         },
+        // showMinLabel: true,
+        // showMaxLabel: true,
         margin: 11.5,
         hideOverlap: true,
       },
@@ -1072,7 +1163,7 @@ const chartOptions = useMemo(
       },
     ],
   }),
-  [chartData]
+  [filteredChartData]
 );
 
 
@@ -1265,12 +1356,89 @@ const chartOptions = useMemo(
               )}
             </View>
 
+            {isReading && (
+                        <View
+                          style={{
+                            paddingHorizontal: 5,
+                          }}
+                        >
+                          {/* Display the three options */}
+                          <View style={[styles.insideContainer]}>
+                            <TouchableOpacity
+                              onPress={() => setHorizontalTickCount(0)}
+                              style={[styles.StartButton]}
+                              disabled={horizontalTickCount === 0}
+                            >
+                              <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 0 ? { color: "gray" } : { color: "black" }]}>Default</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => setHorizontalTickCount(1)}
+                              style={[styles.StartButton]}
+                              disabled={horizontalTickCount === 1}
+                            >
+                              <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 1 ? { color: "gray" } : { color: "black" }]}>1h</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => setHorizontalTickCount(6)}
+                              style={[styles.StartButton]}
+                              disabled={horizontalTickCount === 6}
+                            >
+                              <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 6 ? { color: "gray" } : { color: "black" }]}>6h</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => setHorizontalTickCount(24)}
+                              style={[styles.StartButton]}
+                              disabled={horizontalTickCount === 24}
+                            >
+                              <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 24 ? { color: "gray" } : { color: "black" }]}>24h</Text>
+                            </TouchableOpacity >
+                          </View>
+            
+                          {/* Chart component */}
+                          <View>
+                            <ChartComponent option={chartOptions} />
+                          </View>
+                        </View>
+                      )}
+{/* 
             <View>
                {isReading && <ChartComponent option={chartOptions} />}
-            </View>
+            </View> */}
         </View>
       )}
 
+
+      {latestReadingAverage && (
+        <View>
+          <View style={[styles.container]}>
+            <View>
+              <View
+                style={{
+                  alignContent: "center",
+                  alignItems: "center",
+                  flexDirection: "row",
+                }}
+              >
+                <View style={{ flexDirection: "row" }}>
+                  <Text
+                    style={{
+                      fontWeight: "bold",
+                      paddingLeft: 12,
+                      paddingRight: 20,
+                    }}
+                  >
+                    {latestReadingAverage}
+                  </Text>
+                </View>
+                
+              </View>
+            </View>
+          </View>
+          <View style={{ paddingLeft: 25, paddingBottom: 20 }}>
+            <ServiceResponse responseArray={notifyResponse} />
+          </View>
+        </View>
+      )}
 
       {checkNotify && (
         <View>
