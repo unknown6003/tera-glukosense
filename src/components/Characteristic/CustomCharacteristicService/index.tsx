@@ -635,8 +635,9 @@ function generateDummyData(packetCount: number = 5): number[][] {
         if (selectedMode === "Custom") {
           console.log("Custom mode selected");
           
-          const dummyData = generateDummyData(5); // Simulate 5 packets
-          const data = dummyData.flat();
+          // const dummyData = generateDummyData(5); // Simulate 5 packets
+          // const data = dummyData.flat();
+          data = data.flat();
           console.log("data",data);
           // Assuming multiple packets are received in `data`
           const packets = chunkArray(data, 9); // Assuming each packet is 9 bytes long
@@ -1007,12 +1008,12 @@ useEffect(() => {
     }, firstReadDelay);
 
 
-    setTimeout(() => {
-      performReadingsEveryMinute();
-      setInterval(() => {
-        performReadingsEveryMinute();
-      }, 6000);
-    }, firstReadDelay);
+    // setTimeout(() => {
+    //   performReadingsEveryMinute();
+    //   setInterval(() => {
+    //     performReadingsEveryMinute();
+    //   }, 6000);
+    // }, firstReadDelay);
   };
   
 
