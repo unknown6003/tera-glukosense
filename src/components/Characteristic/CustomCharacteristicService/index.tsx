@@ -233,11 +233,11 @@ console.log("checkRead:"+checkRead);
   const [x3, setX3] = useState<number>(0.1);
   const [x4, setX4] = useState<number>(1);
   const [sensorData, setSensorData] = useState<
-  { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number,timeString: string, dateString: string, data: any }[]
+  { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number[],timeString: string, dateString: string, data: any }[]
 >([]);
 
   const [singleSensorData, setSingleSensorData] = useState<
-  { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number,timeString: string, dateString: string, data: any }[]
+  { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number[],timeString: string, dateString: string, data: any }[]
   >([]);
 
   const handleInputChange = (text: string, setter: React.Dispatch<React.SetStateAction<number>>) => {
@@ -642,10 +642,10 @@ function generateDummyData(packetCount: number = 5): number[][] {
           // Assuming multiple packets are received in `data`
           const packets = chunkArray(data, 9); // Assuming each packet is 9 bytes long
           console.log("packets",packets);
-            const processedPackets = packets.map((packet) => {
+          const processedPackets = packets.map((packet) => {
             const packetIndex = (packet[0] << 8) | packet[1]; // 16-bit index
-            const batteryLevel = packet[2]; // 8-bit battery level
-        
+            let batteryLevel = packet[2]; // 8-bit battery level
+            batteryLevel = (batteryLevel + 200) * 10;
             // Extract 12-bit readings
             const readings = [
               ((packet[3] << 4) | (packet[4] >> 4)) & 0xFFF,
@@ -655,35 +655,25 @@ function generateDummyData(packetCount: number = 5): number[][] {
             ];
         
             // Compute transformed readings
-            const transformedReadings = readings.map((v) =>
+            const avgReading = readings.map((v) =>
               x1 * Math.pow(v, 3) + x2 * Math.pow(v, 2) + x3 * v + x4
             );
         
             // Compute average of transformed readings
-            const avgReading =
-              transformedReadings.reduce((sum, val) => sum + val, 0) / transformedReadings.length;
+            // const avgReading =
+            //   transformedReadings.reduce((sum, val) => sum + val, 0) / transformedReadings.length;
             
             const timeInString = new Date(); 
             const dateString = timeInString.toLocaleDateString(); // Extract date in MM/DD/YYYY format
             const timeString = timeInString.toTimeString().slice(0, 8); 
             
             return { packetIndex, batteryLevel, readings, avgReading,timeString, dateString ,data };
-            });
+          });
 
             if (processedPackets.length > 0) {
-            setLatestReadingAverage(processedPackets[processedPackets.length - 1].avgReading);
+             // setLatestReadingAverage(processedPackets[processedPackets.length - 1].avgReading);
             }
           console.log("processedPackets",processedPackets);
-          // Store data in state (sorting & deduplication)
-          // setSensorData((prevData) => {
-          //   const mergedData = [...prevData, ...processedPackets];
-  
-          //   // Remove duplicates by using a Set based on packetIndex
-          //   const uniqueData = Array.from(new Map(mergedData.map((p) => [p.packetIndex, p])).values());
-  
-          //   return uniqueData.sort((a, b) => a.packetIndex - b.packetIndex);
-          // });
-
           
           setSensorData((prevData) => {
             console.log("Previous sensorData:", prevData);
@@ -809,14 +799,14 @@ function generateDummyData(packetCount: number = 5): number[][] {
       const lines = csvContent.trim().split("\n").slice(2); // Skip first 2 rows
   
       const parsedData = lines.map((line) => {
-        const [packetIndex, batteryLevel, reading1, reading2, reading3, reading4, avgReading, time, date, data] =
+        const [packetIndex, batteryLevel, reading1, reading2, reading3, reading4,calReading1,calReadin2, calReading3,calReading4,avgReading, time, date, data] =
           line.split(",");
   
         return {
           packetIndex: Number(packetIndex),
           batteryLevel: Number(batteryLevel),
           readings: [Number(reading1), Number(reading2), Number(reading3), Number(reading4)],
-          avgReading: Number(avgReading),
+          avgReading: [Number(calReading1), Number(calReadin2), Number(calReading3), Number(calReading4)],
           timeString: time,
           dateString: date,
           data,
@@ -882,13 +872,16 @@ useEffect(() => {
   if (!sensorData || sensorData.length === 0) return;
 
   console.log("📊 Mapping sensorData to chartData");
-  const newChartData = sensorData.map((data, i) => {
-    const timestamp = Date.now() - (sensorData.length - 1 - i) * 90 * 1000;
-    return {
-      name: new Date(timestamp).toISOString(),
-      value: [timestamp, data.avgReading],
-    };
+  const newChartData = sensorData.flatMap((data, i) => {
+    return data.avgReading.map((reading, j) => {
+      const timestamp = Date.now() - ((sensorData.length - 1 - i) * 4 + (3 - j)) * 90 * 1000;
+      return {
+        name: new Date(timestamp).toISOString(),
+        value: [timestamp, reading],
+      };
+    });
   });
+  
 
   console.log("✅ Setting newChartData:", newChartData);
   setChartData(newChartData);
@@ -949,7 +942,7 @@ useEffect(() => {
     RNFS.exists(filePath).then((fileExists) => {
       if (!fileExists) {
         // Create file with headers only if it doesn't exist
-        const headerContent = `${peripheralId},${serviceUuid},${serviceName}\npacketIndex,batteryLevel,reading 1,reading 2,reading 3,reading 4,avgReading,time,date,data\n`;
+        const headerContent = `${peripheralId},${serviceUuid},${serviceName}\npacketIndex,batteryLevel,reading 1,reading 2,reading 3,reading 4,calculated reading 1,calculated reading 2,calculated reading 3,calculated reading 4,time,date,data\n`;
         
         RNFS.writeFile(filePath, headerContent, "utf8")
           .then(() => console.log("CSV file created:", filePath))
@@ -1018,55 +1011,68 @@ useEffect(() => {
   
 
   // ************************************************ Stop and Save ************************************************
-const generateCSVContent = () => {
-  // Generate data rows for each response
-  const dataRows = singleSensorData.map((response, index) => {
-    const timeInString = new Date(); // Assuming the current time for each response
-    const dateString = timeInString.toLocaleDateString(); // Extract date in MM/DD/YYYY format
-    const timeString = timeInString.toTimeString().slice(0, 8); // Extract time in HH:MM:SS format
-
-    // packetIndex,batteryLevel,readings,avgReading,time,date,data
-    return `${response.packetIndex},${response.batteryLevel},${response.readings},${response.avgReading},${timeString},${dateString},${response.data}`;
-  });
-
-  const csvContent = [...dataRows].join("\n");
-  console.log("CSV Content: ", csvContent);
-  return csvContent;
-};
+  const generateCSVContent = (existingPacketIndexes: Set<string>) => {
+    // Generate new data rows, filtering out duplicate packetIndexes
+    const dataRows = singleSensorData
+      .filter((response) => !existingPacketIndexes.has(String(response.packetIndex).trim())) // Ensure correct filtering
+      .map((response) => {
+        const timeInString = new Date();
+        const dateString = timeInString.toLocaleDateString(); // MM/DD/YYYY format
+        const timeString = timeInString.toTimeString().slice(0, 8); // HH:MM:SS format
+  
+        return `${response.packetIndex},${response.batteryLevel},${response.readings},${response.avgReading},${timeString},${dateString},${response.data}`;
+      });
+  
+    if (dataRows.length === 0) {
+      console.log("No new data to append.");
+      return "";
+    }
+  
+    return dataRows.join("\n");
+  };
 
   const appendCSVtoFile = async (folderPath: string, fileName: string, average: number | null = null) => {
     try {
-      // Check if the directory exists, and create it if it doesn't
+      // Ensure the directory exists
       const directoryExists = await RNFS.exists(folderPath);
-      console.log("Directory exists:", directoryExists);
       if (!directoryExists) {
         await RNFS.mkdir(folderPath, {
           NSURLIsExcludedFromBackupKey: true,
-        }); // Create directory with option to exclude from backup
+        });
       }
-
-
-      let csvContent = generateCSVContent();
-      // Generate CSV content
-      if (average !== null) {
-        csvContent = csvContent + `,${average}`;
-      }
-      else {
-        csvContent = csvContent;
-      }
-
-      // Append CSV content to file
+  
       const filePath = `${folderPath}/${fileName}.csv`;
-      console.log("File Path: ", filePath);
-      //check if file exists
+      let existingPacketIndexes = new Set<string>();
+  
+      // Check if the file exists and read its content
       const fileExists = await RNFS.exists(filePath);
-      console.log("File exists:", fileExists);
       if (fileExists) {
-        await RNFS.appendFile(filePath, csvContent + "\n", "utf8");
-      } else {
-        console.log("File does not exist! Couldn't append to file.");
+        const existingContent = await RNFS.readFile(filePath, "utf8");
+  
+        // Extract packetIndex from each line
+        const lines = existingContent.split("\n").filter(line => line.trim() !== "");
+        for (const line of lines) {
+          const columns = line.split(",");
+          if (columns.length > 0) {
+            existingPacketIndexes.add(columns[0].trim()); // Store packetIndex as string
+          }
+        }
       }
-
+      console.log("Existing Packet Indexes:", existingPacketIndexes);
+      
+      // Generate CSV content with filtered data
+      let csvContent = generateCSVContent(existingPacketIndexes);
+      if (!csvContent) {
+        console.log("No new data to append.");
+        return;
+      }
+  
+      if (average !== null) {
+        csvContent += `,${average}`;
+      }
+  
+      // Append new data to file
+      await RNFS.appendFile(filePath, csvContent + "\n", "utf8");
       console.log("CSV file appended successfully:", filePath);
     } catch (error) {
       console.error("Error appending to CSV file:", error);
@@ -1456,7 +1462,7 @@ const chartOptions = useMemo(
                             </TouchableOpacity >
                           </View>
 
-                          {latestReadingAverage && (
+                          {true && (
                             <View>
                               <View style={[styles.container]}>
                                 <View>
@@ -1475,13 +1481,13 @@ const chartOptions = useMemo(
                                           paddingRight: 20,
                                         }}
                                       >
-                                        {latestReadingAverage}
+                                        
                                       </Text>
                                       {sensorData.length > 0 && (
-                <View style={{ marginTop: 0 }}>
-                    <Text style={{ fontWeight: "bold" }}>🔋 {sensorData[sensorData.length - 1].batteryLevel}%</Text>
-                </View>
-              )}
+                                        <View style={{ marginTop: 0 }}>
+                                            <Text style={{ fontWeight: "bold" }}>🔋 {sensorData[sensorData.length - 1].batteryLevel}%</Text>
+                                        </View>
+                                      )}
                                     </View>
 
                                    
@@ -1497,7 +1503,7 @@ const chartOptions = useMemo(
                                   >
                                     
 
-                                    <View style={{ flexDirection: "row" }}>
+                                    {/* <View style={{ flexDirection: "row" }}>
                                       <Text
                                         style={{
                                           fontWeight: "bold",
@@ -1507,7 +1513,7 @@ const chartOptions = useMemo(
                                       >
                                         Data: {hexStringState}
                                       </Text>
-                                    </View>
+                                    </View> */}
                                     
                                   </View>
                                 </View>

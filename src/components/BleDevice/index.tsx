@@ -182,11 +182,11 @@ const BleDevice: React.FC<BleDeviceProps> = (props: BleDeviceProps) => {
             if (navigation.canGoBack()) {
               console.log('Peripheral connection timeout');
               alert('Peripheral connection timeout');
-              navigation.goBack();
+              //navigation.goBack();
             }
           }
         });
-      }, 5000);
+      }, 6000);
 
       console.log('handleConnection');
       handleConnection(peripheralId);
