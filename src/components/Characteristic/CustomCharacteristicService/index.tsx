@@ -891,10 +891,10 @@ useEffect(() => {
   
 
   const handleCustomReading = () => {
-    if (x1 === 0 || x2 === 0 || x3 === 0 || x4 === 0) {
-      Alert.alert("Invalid Input", "Please enter valid input");
-      return;
-    }
+    // if (x1 === 0 || x2 === 0 || x3 === 0 || x4 === 0) {
+    //   Alert.alert("Invalid Input", "Please enter valid input");
+    //   return;
+    // }
 
    
   
@@ -1298,7 +1298,7 @@ const chartOptions = useMemo(
           <Text style={styles.label}>X1 Value</Text>
           <View style={styles.inputWrapper}>
             <TextInput
-              value={x1 === 0 ? "" : x1.toString()} // Show empty if 0, but keep value internally
+              value={x1 !== null && x1 !== undefined ? x1.toString() : ""}
               onChangeText={(text) => handleInputChange(text, setX1)}
               keyboardType="numeric"
               placeholder="Enter X1"
@@ -1306,48 +1306,52 @@ const chartOptions = useMemo(
               editable={!isReading}
             />
           </View>
+
         </View>
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>X2 Value</Text>
           <View style={styles.inputWrapper}>
-            <TextInput
-              value={x2 === 0 ? "" : x2.toString()}
-              onChangeText={(text) => handleInputChange(text, setX2)}
-              keyboardType="numeric"
-              placeholder="Enter X2"
-              style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-              editable={!isReading}
-            />
-          </View>
+  <TextInput
+    value={x2 !== null && x2 !== undefined ? x2.toString() : ""}
+    onChangeText={(text) => handleInputChange(text, setX2)}
+    keyboardType="numeric"
+    placeholder="Enter X2"
+    style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
+    editable={!isReading}
+  />
+</View>
+
         </View>
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>X3 Value</Text>
           <View style={styles.inputWrapper}>
-            <TextInput
-              value={x3 === 0 ? "" : x3.toString()}
-              onChangeText={(text) => handleInputChange(text, setX3)}
-              keyboardType="numeric"
-              placeholder="Enter X3"
-              style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-              editable={!isReading}
-            />
-          </View>
+  <TextInput
+    value={x3 !== null && x3 !== undefined ? x3.toString() : ""}
+    onChangeText={(text) => handleInputChange(text, setX3)}
+    keyboardType="numeric"
+    placeholder="Enter X3"
+    style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
+    editable={!isReading}
+  />
+</View>
+
         </View>
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>X4 Value</Text>
           <View style={styles.inputWrapper}>
-            <TextInput
-              value={x4 === 0 ? "" : x4.toString()}
-              onChangeText={(text) => handleInputChange(text, setX4)}
-              keyboardType="numeric"
-              placeholder="Enter X4"
-              style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-              editable={!isReading}
-            />
-          </View>
+  <TextInput
+    value={x4 !== null && x4 !== undefined ? x4.toString() : ""}
+    onChangeText={(text) => handleInputChange(text, setX4)}
+    keyboardType="numeric"
+    placeholder="Enter X4"
+    style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
+    editable={!isReading}
+  />
+</View>
+
             
         </View>
 
