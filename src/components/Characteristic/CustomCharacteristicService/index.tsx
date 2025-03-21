@@ -12,7 +12,7 @@ import {
   PermissionsAndroid,
   Linking,
 } from "react-native";
-import Share from 'react-native-share';
+import Share from "react-native-share";
 import { useFocusEffect } from "@react-navigation/native";
 import { Text } from "../../Themed";
 import React, {
@@ -49,7 +49,7 @@ import {
   DataZoomComponent,
 } from "echarts/components";
 import { Dimensions } from "react-native";
-import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
+import { activateKeepAwake, deactivateKeepAwake } from "expo-keep-awake";
 
 // Register extensions
 echarts.use([
@@ -124,12 +124,10 @@ const CustomCharacteristicService: React.FC<Props> = ({
   setSelectedMode,
   selectedMode,
 }) => {
-
-
   useEffect(() => {
     // Activate keep awake when Auto mode is selected
-    if (selectedMode === 'Auto') {
-      console.log('Activating keep awake\n\n***************\n\n');
+    if (selectedMode === "Auto") {
+      console.log("Activating keep awake\n\n***************\n\n");
       activateKeepAwake();
     } else {
       // Deactivate keep awake when mode changes
@@ -149,7 +147,7 @@ const CustomCharacteristicService: React.FC<Props> = ({
   let checkWriteWithoutRsp =
     Object.values(char.properties).indexOf("WriteWithoutResponse") > -1;
   let checkRead = Object.values(char.properties).indexOf("Read") > -1;
-console.log("checkRead:"+checkRead);
+  console.log("checkRead:" + checkRead);
 
   let propertiesString = "";
   if (checkRead) {
@@ -186,7 +184,7 @@ console.log("checkRead:"+checkRead);
   const [writeResponse, setWriteResponse] = useState<Response[]>([]);
   const [notifyResponse, setNotifyResponse] = useState<Response[]>([]);
   const [hexStringState, setHexStringState] = useState<string>("");
-  
+
   const writeTextInputRef = useRef({});
 
   let initialFocus = useRef<boolean>(true);
@@ -197,7 +195,9 @@ console.log("checkRead:"+checkRead);
   const [numReadings, setNumReadings] = useState<number>(60);
   const [avgTime, setAvgTime] = useState<number>(0.05);
   const [isReading, setIsReading] = useState<boolean>(false);
-  const [latestReadingAverage, setLatestReadingAverage] = useState<number | null>(null);
+  const [latestReadingAverage, setLatestReadingAverage] = useState<
+    number | null
+  >(null);
   const [readingInterval, setReadingInterval] = useState<NodeJS.Timeout | null>(
     null
   );
@@ -207,9 +207,9 @@ console.log("checkRead:"+checkRead);
   const [autoReadResponses, setAutoReadResponses] = useState<AutoResponse[]>(
     []
   );
-  const [customReadResponses, setCustomReadResponses] = useState<CustomResponse[]>(
-    []
-  );
+  const [customReadResponses, setCustomReadResponses] = useState<
+    CustomResponse[]
+  >([]);
   const [arrayLength, setArrayLength] = useState<number>(0);
   const [horizontalTickCount, setHorizontalTickCount] = useState<number>(0);
   const [chartData, setChartData] = useState<
@@ -233,14 +233,33 @@ console.log("checkRead:"+checkRead);
   const [x3, setX3] = useState<number>(0.1);
   const [x4, setX4] = useState<number>(1);
   const [sensorData, setSensorData] = useState<
-  { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number[],timeString: string, dateString: string, data: any }[]
->([]);
-
-  const [singleSensorData, setSingleSensorData] = useState<
-  { packetIndex: number; batteryLevel: number; readings: number[]; avgReading: number[],timeString: string, dateString: string, data: any }[]
+    {
+      packetIndex: number;
+      batteryLevel: number;
+      readings: number[];
+      avgReading: number[];
+      timeString: string;
+      dateString: string;
+      data: any;
+    }[]
   >([]);
 
-  const handleInputChange = (text: string, setter: React.Dispatch<React.SetStateAction<number>>) => {
+  const [singleSensorData, setSingleSensorData] = useState<
+    {
+      packetIndex: number;
+      batteryLevel: number;
+      readings: number[];
+      avgReading: number[];
+      timeString: string;
+      dateString: string;
+      data: any;
+    }[]
+  >([]);
+
+  const handleInputChange = (
+    text: string,
+    setter: React.Dispatch<React.SetStateAction<number>>
+  ) => {
     if (text === "") {
       setter(0); // Default to 0 instead of null
     } else {
@@ -252,9 +271,10 @@ console.log("checkRead:"+checkRead);
   };
 
   const [collectedReadings, setCollectedReadings] = useState([]);
-  const collectionRef = useRef<{ index: number; battery: number; readings: number[]; time: string; }[]>([]);
+  const collectionRef = useRef<
+    { index: number; battery: number; readings: number[]; time: string }[]
+  >([]);
   const [isCollecting, setIsCollecting] = useState(false);
-
 
   // ************************* Start Folder Creation ************************** //
 
@@ -432,8 +452,7 @@ console.log("checkRead:"+checkRead);
 
     checkIfCharacteristicNameAvailable();
 
-    return () => {
-    };
+    return () => {};
   }, [notificationSwitch, selectedFormat]);
 
   useEffect(() => {
@@ -569,7 +588,6 @@ console.log("checkRead:"+checkRead);
     [writeWithResponseSwitch, selectedFormat]
   );
 
-
   const handleWriteButton = useCallback(() => {
     writeTextInputRef[char.characteristic].focus();
   }, []);
@@ -578,49 +596,50 @@ console.log("checkRead:"+checkRead);
     setNotificationSwitch((prev) => !prev);
   }, [notificationSwitch]);
 
+  function generateDummyData(packetCount: number = 5): number[][] {
+    const dummyPackets: number[][] = [];
 
-function generateDummyData(packetCount: number = 5): number[][] {
-  const dummyPackets: number[][] = [];
+    for (let i = 0; i < packetCount; i++) {
+      const packetIndex = i; // Simulating sequential packet index
+      const batteryLevel = Math.floor(Math.random() * 100); // Simulated battery level (0-100)
 
-  for (let i = 0; i < packetCount; i++) {
-    const packetIndex = i; // Simulating sequential packet index
-    const batteryLevel = Math.floor(Math.random() * 100); // Simulated battery level (0-100)
+      // Simulated 12-bit sensor readings (0-4095)
+      const readings = Array.from({ length: 4 }, () =>
+        Math.floor(Math.random() * 4096)
+      );
 
-    // Simulated 12-bit sensor readings (0-4095)
-    const readings = Array.from({ length: 4 }, () => Math.floor(Math.random() * 4096));
+      // Convert 12-bit readings into 9-byte format
+      const packet = [
+        (packetIndex >> 8) & 0xff, // Higher byte of index
+        packetIndex & 0xff, // Lower byte of index
+        batteryLevel, // Battery level
+        (readings[0] >> 4) & 0xff, // Reading 1 (upper part)
+        ((readings[0] & 0xf) << 4) | ((readings[1] >> 8) & 0xf), // Reading 1 (lower) + Reading 2 (upper)
+        readings[1] & 0xff, // Reading 2 (lower)
+        (readings[2] >> 4) & 0xff, // Reading 3 (upper part)
+        ((readings[2] & 0xf) << 4) | ((readings[3] >> 8) & 0xf), // Reading 3 (lower) + Reading 4 (upper)
+        readings[3] & 0xff, // Reading 4 (lower)
+      ];
 
-    // Convert 12-bit readings into 9-byte format
-    const packet = [
-      (packetIndex >> 8) & 0xFF, // Higher byte of index
-      packetIndex & 0xFF,        // Lower byte of index
-      batteryLevel,              // Battery level
-      (readings[0] >> 4) & 0xFF, // Reading 1 (upper part)
-      ((readings[0] & 0xF) << 4) | ((readings[1] >> 8) & 0xF), // Reading 1 (lower) + Reading 2 (upper)
-      readings[1] & 0xFF,        // Reading 2 (lower)
-      (readings[2] >> 4) & 0xFF, // Reading 3 (upper part)
-      ((readings[2] & 0xF) << 4) | ((readings[3] >> 8) & 0xF), // Reading 3 (lower) + Reading 4 (upper)
-      readings[3] & 0xFF,        // Reading 4 (lower)
-    ];
+      dummyPackets.push(packet);
+    }
 
-    dummyPackets.push(packet);
+    return dummyPackets;
   }
-
-  return dummyPackets;
-}
 
   const handleReadButton = useCallback(() => {
     if (!char?.properties || !("Read" in char.properties)) {
       console.log("Read not supported by this characteristic");
       return;
     }
-  
+
     BleManager.read(peripheralId, serviceUuid, char.characteristic)
       .then((data) => {
         if (!data || data.length === 0) {
           console.log("Received empty data from BLE read");
           return;
         }
-  
+
         let hexString;
         if (selectedFormat === "UTF-8") {
           hexString = Buffer.from(data).toString("utf8");
@@ -629,65 +648,77 @@ function generateDummyData(packetCount: number = 5): number[][] {
         } else {
           hexString = Buffer.from(data).toString("hex");
         }
-  
-        console.log(`handleReadButtonddd: converted to ${selectedFormat} ${selectedMode} `, hexString);
-  
+
+        console.log(
+          `handleReadButtonddd: converted to ${selectedFormat} ${selectedMode} `,
+          hexString
+        );
+
         if (selectedMode === "Custom") {
           console.log("Custom mode selected");
-          
+
           // const dummyData = generateDummyData(5); // Simulate 5 packets
           // const data = dummyData.flat();
           data = data.flat();
-          console.log("data",data);
+          console.log("data", data);
           // Assuming multiple packets are received in `data`
           const packets = chunkArray(data, 9); // Assuming each packet is 9 bytes long
-          console.log("packets",packets);
+          console.log("packets", packets);
           const processedPackets = packets.map((packet) => {
             const packetIndex = (packet[0] << 8) | packet[1]; // 16-bit index
             let batteryLevel = packet[2]; // 8-bit battery level
             batteryLevel = (batteryLevel + 200) * 10;
             // Extract 12-bit readings
             const readings = [
-              ((packet[3] << 4) | (packet[4] >> 4)) & 0xFFF,
-              (((packet[4] & 0xF) << 8) | packet[5]) & 0xFFF,
-              ((packet[6] << 4) | (packet[7] >> 4)) & 0xFFF,
-              (((packet[7] & 0xF) << 8) | packet[8]) & 0xFFF,
+              ((packet[3] << 4) | (packet[4] >> 4)) & 0xfff,
+              (((packet[4] & 0xf) << 8) | packet[5]) & 0xfff,
+              ((packet[6] << 4) | (packet[7] >> 4)) & 0xfff,
+              (((packet[7] & 0xf) << 8) | packet[8]) & 0xfff,
             ];
-        
+
             // Compute transformed readings
-            const avgReading = readings.map((v) =>
-              x1 * Math.pow(v, 3) + x2 * Math.pow(v, 2) + x3 * v + x4
+            const avgReading = readings.map(
+              (v) => x1 * Math.pow(v, 3) + x2 * Math.pow(v, 2) + x3 * v + x4
             );
-        
+
             // Compute average of transformed readings
             // const avgReading =
             //   transformedReadings.reduce((sum, val) => sum + val, 0) / transformedReadings.length;
-            
-            const timeInString = new Date(); 
+
+            const timeInString = new Date();
             const dateString = timeInString.toLocaleDateString(); // Extract date in MM/DD/YYYY format
-            const timeString = timeInString.toTimeString().slice(0, 8); 
-            
-            return { packetIndex, batteryLevel, readings, avgReading,timeString, dateString ,data };
+            const timeString = timeInString.toTimeString().slice(0, 8);
+
+            return {
+              packetIndex,
+              batteryLevel,
+              readings,
+              avgReading,
+              timeString,
+              dateString,
+              data,
+            };
           });
 
-            if (processedPackets.length > 0) {
-             // setLatestReadingAverage(processedPackets[processedPackets.length - 1].avgReading);
-            }
-          console.log("processedPackets",processedPackets);
-          
+          if (processedPackets.length > 0) {
+            // setLatestReadingAverage(processedPackets[processedPackets.length - 1].avgReading);
+          }
+          console.log("processedPackets", processedPackets);
+
           setSensorData((prevData) => {
             console.log("Previous sensorData:", prevData);
             console.log("New processedPackets:", processedPackets);
-          
+
             const mergedData = [...prevData, ...processedPackets];
-          
+
             // Remove duplicates by using a Set based on packetIndex
-            const uniqueData = Array.from(new Map(mergedData.map((p) => [p.packetIndex, p])).values());
-          
+            const uniqueData = Array.from(
+              new Map(mergedData.map((p) => [p.packetIndex, p])).values()
+            );
+
             console.log("Updated sensorData:", uniqueData);
             return uniqueData.sort((a, b) => a.packetIndex - b.packetIndex);
           });
-
 
           setSingleSensorData(processedPackets);
         }
@@ -697,20 +728,19 @@ function generateDummyData(packetCount: number = 5): number[][] {
       });
   }, [selectedFormat, selectedMode]);
 
-
   const handlePerMinuteRead = () => {
     if (!char?.properties || !("Read" in char.properties)) {
       console.log("Read not supported by this characteristic");
       return;
     }
-  
+
     BleManager.read(peripheralId, serviceUuid, char.characteristic)
       .then((data) => {
         if (!data || data.length === 0) {
           console.log("Received empty data from BLE read");
           return;
         }
-  
+
         let hexString;
         if (selectedFormat === "UTF-8") {
           hexString = Buffer.from(data).toString("utf8");
@@ -719,70 +749,67 @@ function generateDummyData(packetCount: number = 5): number[][] {
         } else {
           hexString = Buffer.from(data).toString("hex");
         }
-  
-        console.log(`handleReadButtonssss: converted to ${selectedFormat} ${selectedMode} `, hexString);
+
+        console.log(
+          `handleReadButtonssss: converted to ${selectedFormat} ${selectedMode} `,
+          hexString
+        );
         setHexStringState(hexString);
-  
-  
       })
       .catch((error) => {
         console.log("read error: ", error);
       });
-};
+  };
 
-    // Filter the chartData based on the horizontalTickCount
-    useEffect(() => {
-      console.log(
-        "chartData updated                 : ",
-        chartData,
-        chartData.length
+  // Filter the chartData based on the horizontalTickCount
+  useEffect(() => {
+    console.log(
+      "chartData updated                 : ",
+      chartData,
+      chartData.length
+    );
+
+    if (
+      horizontalTickCount === 1 ||
+      horizontalTickCount === 6 ||
+      horizontalTickCount === 24
+    ) {
+      const currentTime = new Date();
+      const startTime = new Date(
+        currentTime.getTime() - horizontalTickCount * 60 * 60 * 1000
       );
-  
-      if (
-        horizontalTickCount === 1 ||
-        horizontalTickCount === 6 ||
-        horizontalTickCount === 24
-      ) {
-        const currentTime = new Date();
-        const startTime = new Date(
-          currentTime.getTime() - horizontalTickCount * 60 * 60 * 1000
-        );
-  
-        console.log(
-          "Filtering data: ",
-          horizontalTickCount,
-          startTime,
-          currentTime
-        );
-  
-        // Filter the chartData based on the startTime and currentTime
-        const filteredChartData = chartData.filter(
-          (response) =>
-            new Date(response.name) >= startTime &&
-            new Date(response.name) <= currentTime
-        );
-  
-        // Check if the filtered chartData is different from the current chartData
-        const isChartDataChanged =
-          JSON.stringify(chartData) !== JSON.stringify(filteredChartData);
-  
-        if (isChartDataChanged) {
-          // Update the chartData state with the filteredChartData
-          setFilteredChartData(filteredChartData);
-        }
-      }
-      else {
-        console.log("HorizontalTick count is 0 ******************************")
-        setFilteredChartData(chartData);
-  
-      }
-    }, [chartData, horizontalTickCount]);
 
+      console.log(
+        "Filtering data: ",
+        horizontalTickCount,
+        startTime,
+        currentTime
+      );
+
+      // Filter the chartData based on the startTime and currentTime
+      const filteredChartData = chartData.filter(
+        (response) =>
+          new Date(response.name) >= startTime &&
+          new Date(response.name) <= currentTime
+      );
+
+      // Check if the filtered chartData is different from the current chartData
+      const isChartDataChanged =
+        JSON.stringify(chartData) !== JSON.stringify(filteredChartData);
+
+      if (isChartDataChanged) {
+        // Update the chartData state with the filteredChartData
+        setFilteredChartData(filteredChartData);
+      }
+    } else {
+      console.log("HorizontalTick count is 0 ******************************");
+      setFilteredChartData(chartData);
+    }
+  }, [chartData, horizontalTickCount]);
 
   useEffect(() => {
     appendCSVtoFile(folderPath, fileName);
-  }, [singleSensorData]); 
-  
+  }, [singleSensorData]);
 
   const retrieveAndSetSensorData = async (filePath: string) => {
     try {
@@ -791,35 +818,58 @@ function generateDummyData(packetCount: number = 5): number[][] {
         console.log("CSV file does not exist yet.");
         return;
       }
-  
+
       const csvContent = await RNFS.readFile(filePath, "utf8");
       console.log("Retrieved CSV Content: ", csvContent);
-  
+
       // Split lines and remove first two rows (headers)
       const lines = csvContent.trim().split("\n").slice(2); // Skip first 2 rows
-  
+
       const parsedData = lines.map((line) => {
-        const [packetIndex, batteryLevel, reading1, reading2, reading3, reading4,calReading1,calReadin2, calReading3,calReading4,avgReading, time, date, data] =
-          line.split(",");
-  
+        const [
+          packetIndex,
+          batteryLevel,
+          reading1,
+          reading2,
+          reading3,
+          reading4,
+          calReading1,
+          calReadin2,
+          calReading3,
+          calReading4,
+          avgReading,
+          time,
+          date,
+          data,
+        ] = line.split(",");
+
         return {
           packetIndex: Number(packetIndex),
           batteryLevel: Number(batteryLevel),
-          readings: [Number(reading1), Number(reading2), Number(reading3), Number(reading4)],
-          avgReading: [Number(calReading1), Number(calReadin2), Number(calReading3), Number(calReading4)],
+          readings: [
+            Number(reading1),
+            Number(reading2),
+            Number(reading3),
+            Number(reading4),
+          ],
+          avgReading: [
+            Number(calReading1),
+            Number(calReadin2),
+            Number(calReading3),
+            Number(calReading4),
+          ],
           timeString: time,
           dateString: date,
           data,
         };
       });
-  
+
       console.log("Parsed CSV Data:", parsedData);
       setSensorData(parsedData); // Store in state
     } catch (error) {
       console.error("Error reading CSV file:", error);
     }
   };
-
 
   // Helper function to split data into packets of fixed size
   const chunkArray = (array: number[], size: number): number[][] => {
@@ -829,66 +879,59 @@ function generateDummyData(packetCount: number = 5): number[][] {
     }
     return chunks;
   };
-  
-  
 
- // Function to update chart data at 1.5 min intervals
-//  useEffect(() => {
-//   if (!sensorData || sensorData.length === 0) return; // Ensure sensorData exists
+  // Function to update chart data at 1.5 min intervals
+  //  useEffect(() => {
+  //   if (!sensorData || sensorData.length === 0) return; // Ensure sensorData exists
 
-//   const newChartData = sensorData.map((data, i) => ({
-//     time: new Date(Date.now() - (sensorData.length - 1 - i) * 90 * 1000), // Correct order
-//     avgReading: data.avgReading,
-//   }));
+  //   const newChartData = sensorData.map((data, i) => ({
+  //     time: new Date(Date.now() - (sensorData.length - 1 - i) * 90 * 1000), // Correct order
+  //     avgReading: data.avgReading,
+  //   }));
 
-//   setChartData(
-//     newChartData.map((item) => ({
-//       name: item.time.toISOString(), // Convert Date to string
-//       value: [item.avgReading], // Wrap avgReading in an array
-//     }))
-//   );
-// }, [sensorData]); // Run only when sensorData updates
+  //   setChartData(
+  //     newChartData.map((item) => ({
+  //       name: item.time.toISOString(), // Convert Date to string
+  //       value: [item.avgReading], // Wrap avgReading in an array
+  //     }))
+  //   );
+  // }, [sensorData]); // Run only when sensorData updates
 
+  // useEffect(() => {
+  //   console.table("sensorData",sensorData);
+  //   if (!sensorData || sensorData.length === 0) return; // Ensure sensorData exists
+  //   console.table(sensorData);
+  //   const newChartData = sensorData.map((data, i) => {
+  //     const timestamp = Date.now() - (sensorData.length - 1 - i) * 90 * 1000; // Adjusted time calculation
+  //     return {
+  //       name: new Date(timestamp).toISOString(), // Convert Date to ISO format
+  //       value: [timestamp, data.avgReading], // Wrap timestamp & avgReading in an array
+  //     };
+  //   });
 
-// useEffect(() => {
-//   console.table("sensorData",sensorData);
-//   if (!sensorData || sensorData.length === 0) return; // Ensure sensorData exists
-//   console.table(sensorData);
-//   const newChartData = sensorData.map((data, i) => {
-//     const timestamp = Date.now() - (sensorData.length - 1 - i) * 90 * 1000; // Adjusted time calculation
-//     return {
-//       name: new Date(timestamp).toISOString(), // Convert Date to ISO format
-//       value: [timestamp, data.avgReading], // Wrap timestamp & avgReading in an array
-//     };
-//   });
+  //   setChartData(newChartData);
+  // }, [sensorData]);
 
-//   setChartData(newChartData);
-// }, [sensorData]);
+  useEffect(() => {
+    console.log("🚀 useEffect triggered with sensorData:", sensorData);
 
+    if (!sensorData || sensorData.length === 0) return;
 
-useEffect(() => {
-  console.log("🚀 useEffect triggered with sensorData:", sensorData);
-  
-  if (!sensorData || sensorData.length === 0) return;
-
-  console.log("📊 Mapping sensorData to chartData");
-  const newChartData = sensorData.flatMap((data, i) => {
-    return data.avgReading.map((reading, j) => {
-      const timestamp = Date.now() - ((sensorData.length - 1 - i) * 4 + (3 - j)) * 90 * 1000;
-      return {
-        name: new Date(timestamp).toISOString(),
-        value: [timestamp, reading],
-      };
+    console.log("📊 Mapping sensorData to chartData");
+    const newChartData = sensorData.flatMap((data, i) => {
+      return data.avgReading.map((reading, j) => {
+        const timestamp =
+          Date.now() - ((sensorData.length - 1 - i) * 4 + (3 - j)) * 90 * 1000;
+        return {
+          name: new Date(timestamp).toISOString(),
+          value: [timestamp, reading],
+        };
+      });
     });
-  });
-  
 
-  console.log("✅ Setting newChartData:", newChartData);
-  setChartData(newChartData);
-}, [sensorData]); // Ensure sensorData is in dependency array
-
-
-  
+    console.log("✅ Setting newChartData:", newChartData);
+    setChartData(newChartData);
+  }, [sensorData]); // Ensure sensorData is in dependency array
 
   const handleCustomReading = () => {
     // if (x1 === 0 || x2 === 0 || x3 === 0 || x4 === 0) {
@@ -896,10 +939,8 @@ useEffect(() => {
     //   return;
     // }
 
-   
-  
     setIsReading(true);
-  
+
     // Define the listening schedule
     // const intervalBetweenSets = 6 * 60 * 1000; // 6 minutes
     // const listenDuration = 10 * 1000; // 10 seconds
@@ -910,40 +951,38 @@ useEffect(() => {
     // const listenDuration = 1000; // ⏳ **Listen for 5 seconds instead of 10 seconds**
     // const readFrequency = 100; // Read every 100ms
 
-
-       const intervalBetweenSets = 6 * 60 * 1000; // 6 minutes
+    const intervalBetweenSets = 6 * 60 * 1000; // 6 minutes
     const listenDuration = 1000; // 10 seconds
     const readFrequency = 100; // Read every 100ms within the listen window
-  
+
     // Set initial timestamps
     const currentTime = new Date();
     setInitialTime(currentTime);
-  
+
     const next = new Date(currentTime.getTime() + avgTime * 60 * 1000);
     setNextTime(next);
     console.log("Time now and next: ", currentTime, next);
-  
+
     // Prepare CSV file
     const dateString = currentTime.toISOString().slice(0, 10);
     const timeString = currentTime.toTimeString().slice(0, 8);
     //const fileName = sanitizeFilename(`${peripheralId}_${dateString}_${timeString}`);
-    const fileName = sanitizeFilename(`${peripheralId}_${"myblefile"}`);//"myblefile";
+    const fileName = sanitizeFilename(`${peripheralId}_${"myblefile"}`); //"myblefile";
     const filePath = `${folderPath}/${fileName}.csv`;
     setFileName(fileName);
 
-  
     RNFS.exists(folderPath).then((exists) => {
       if (!exists) {
         RNFS.mkdir(folderPath, { NSURLIsExcludedFromBackupKey: true });
       }
     });
-   
+
     // Check if file exists before creating and adding headers
     RNFS.exists(filePath).then((fileExists) => {
       if (!fileExists) {
         // Create file with headers only if it doesn't exist
         const headerContent = `${peripheralId},${serviceUuid},${serviceName}\npacketIndex,batteryLevel,reading 1,reading 2,reading 3,reading 4,calculated reading 1,calculated reading 2,calculated reading 3,calculated reading 4,time,date,data\n`;
-        
+
         RNFS.writeFile(filePath, headerContent, "utf8")
           .then(() => console.log("CSV file created:", filePath))
           .catch((error) => console.error("Error creating CSV file:", error));
@@ -953,12 +992,12 @@ useEffect(() => {
     });
 
     retrieveAndSetSensorData(filePath);
-  
+
     // Function to perform continuous readings for 10 seconds
     const performReadings = () => {
       console.log("⏳ Listening for 10 seconds...");
       const startTime = Date.now();
-  
+
       const readLoop = setInterval(() => {
         if (Date.now() - startTime >= listenDuration) {
           clearInterval(readLoop);
@@ -967,15 +1006,14 @@ useEffect(() => {
           handleReadButton();
         }
       }, readFrequency);
-  
+
       setTimeouts((prevTimeouts) => [...prevTimeouts, readLoop]); // Store timeout reference
     };
-
 
     const performReadingsEveryMinute = () => {
       console.log("⏳ Listening for 10 seconds...");
       const startTime = Date.now();
-  
+
       const readLoop = setInterval(() => {
         if (Date.now() - startTime >= listenDuration) {
           clearInterval(readLoop);
@@ -984,14 +1022,13 @@ useEffect(() => {
           handlePerMinuteRead();
         }
       }, readFrequency);
-  
+
       setTimeouts((prevTimeouts) => [...prevTimeouts, readLoop]); // Store timeout reference
     };
-  
-  
+
     // Schedule the first listening session exactly when 'nextTime' arrives
     const firstReadDelay = 0;
-  
+
     setTimeout(() => {
       performReadings();
       const interval = setInterval(() => {
@@ -1000,7 +1037,6 @@ useEffect(() => {
       setReadingInterval(interval);
     }, firstReadDelay);
 
-
     // setTimeout(() => {
     //   performReadingsEveryMinute();
     //   setInterval(() => {
@@ -1008,30 +1044,36 @@ useEffect(() => {
     //   }, 6000);
     // }, firstReadDelay);
   };
-  
 
   // ************************************************ Stop and Save ************************************************
   const generateCSVContent = (existingPacketIndexes: Set<string>) => {
     // Generate new data rows, filtering out duplicate packetIndexes
     const dataRows = singleSensorData
-      .filter((response) => !existingPacketIndexes.has(String(response.packetIndex).trim())) // Ensure correct filtering
+      .filter(
+        (response) =>
+          !existingPacketIndexes.has(String(response.packetIndex).trim())
+      ) // Ensure correct filtering
       .map((response) => {
         const timeInString = new Date();
         const dateString = timeInString.toLocaleDateString(); // MM/DD/YYYY format
         const timeString = timeInString.toTimeString().slice(0, 8); // HH:MM:SS format
-  
+
         return `${response.packetIndex},${response.batteryLevel},${response.readings},${response.avgReading},${timeString},${dateString},${response.data}`;
       });
-  
+
     if (dataRows.length === 0) {
       console.log("No new data to append.");
       return "";
     }
-  
+
     return dataRows.join("\n");
   };
 
-  const appendCSVtoFile = async (folderPath: string, fileName: string, average: number | null = null) => {
+  const appendCSVtoFile = async (
+    folderPath: string,
+    fileName: string,
+    average: number | null = null
+  ) => {
     try {
       // Ensure the directory exists
       const directoryExists = await RNFS.exists(folderPath);
@@ -1040,17 +1082,19 @@ useEffect(() => {
           NSURLIsExcludedFromBackupKey: true,
         });
       }
-  
+
       const filePath = `${folderPath}/${fileName}.csv`;
       let existingPacketIndexes = new Set<string>();
-  
+
       // Check if the file exists and read its content
       const fileExists = await RNFS.exists(filePath);
       if (fileExists) {
         const existingContent = await RNFS.readFile(filePath, "utf8");
-  
+
         // Extract packetIndex from each line
-        const lines = existingContent.split("\n").filter(line => line.trim() !== "");
+        const lines = existingContent
+          .split("\n")
+          .filter((line) => line.trim() !== "");
         for (const line of lines) {
           const columns = line.split(",");
           if (columns.length > 0) {
@@ -1059,18 +1103,18 @@ useEffect(() => {
         }
       }
       console.log("Existing Packet Indexes:", existingPacketIndexes);
-      
+
       // Generate CSV content with filtered data
       let csvContent = generateCSVContent(existingPacketIndexes);
       if (!csvContent) {
         console.log("No new data to append.");
         return;
       }
-  
+
       if (average !== null) {
         csvContent += `,${average}`;
       }
-  
+
       // Append new data to file
       await RNFS.appendFile(filePath, csvContent + "\n", "utf8");
       console.log("CSV file appended successfully:", filePath);
@@ -1085,7 +1129,6 @@ useEffect(() => {
   };
 
   const handleStopReading = () => {
-
     // append the remaining data to the file
     //appendCSVtoFile(folderPath, fileName);
 
@@ -1131,119 +1174,115 @@ useEffect(() => {
     );
   }, [folderPath]);
 
-
-const chartOptions = useMemo(
-  () => ({
-    backgroundColor: "#333",
-    grid: {
-      top: "10%",
-      bottom: "20%",
-      left: "2%",
-      right: "5%",
-      containLabel: true,
-    },
-    dataZoom: {
-      start: 0,
-      type: "slider",
-    },
-    // xAxis: {
-    //   type: "time",
-    //   splitNumber: 3,
-    //   splitLine: {
-    //     show: true,
-    //     lineStyle: {
-    //       color: "yellow",
-    //       opacity: 0.1,
-    //     },
-    //   },
-    //   axisLabel: {
-    //     formatter: (value: number) => { 
-    //       const date = new Date(value);
-    //       return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
-    //     },
-    //     margin: 11.5,
-    //     hideOverlap: true,
-    //   },
-    // },
-    xAxis: {
-      type: "time",
-      splitNumber: 3,
-      splitLine: {
-        show: true,
-        lineStyle: {
-          color: 'yellow', 
-          opacity: 0.1,    
-        }
+  const chartOptions = useMemo(
+    () => ({
+      backgroundColor: "#333",
+      grid: {
+        top: "10%",
+        bottom: "20%",
+        left: "2%",
+        right: "5%",
+        containLabel: true,
       },
-      axisLabel: {
-        formatter: function (value: any, index: any, name: any) {
-          if (chartData.length === 1) {
-            const date = new Date(chartData[0].name);
+      dataZoom: {
+        start: 0,
+        type: "slider",
+      },
+      // xAxis: {
+      //   type: "time",
+      //   splitNumber: 3,
+      //   splitLine: {
+      //     show: true,
+      //     lineStyle: {
+      //       color: "yellow",
+      //       opacity: 0.1,
+      //     },
+      //   },
+      //   axisLabel: {
+      //     formatter: (value: number) => {
+      //       const date = new Date(value);
+      //       return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+      //     },
+      //     margin: 11.5,
+      //     hideOverlap: true,
+      //   },
+      // },
+      xAxis: {
+        type: "time",
+        splitNumber: 3,
+        splitLine: {
+          show: true,
+          lineStyle: {
+            color: "yellow",
+            opacity: 0.1,
+          },
+        },
+        axisLabel: {
+          formatter: function (value: any, index: any, name: any) {
+            if (chartData.length === 1) {
+              const date = new Date(chartData[0].name);
+              const hours = date.getHours().toString().padStart(2, "0");
+              const minutes = date.getMinutes().toString().padStart(2, "0");
+              // console.log("hours: ", hours, "minutes: ", minutes);
+              if (horizontalTickCount === 6 || horizontalTickCount === 24)
+                return `${hours}`;
+              return `${hours}:${minutes}`;
+            }
+            const date = new Date(value);
             const hours = date.getHours().toString().padStart(2, "0");
             const minutes = date.getMinutes().toString().padStart(2, "0");
+            const seconds = date.getSeconds().toString().padStart(2, "0");
             // console.log("hours: ", hours, "minutes: ", minutes);
             if (horizontalTickCount === 6 || horizontalTickCount === 24)
               return `${hours}`;
             return `${hours}:${minutes}`;
-          }
-          const date = new Date(value);
-          const hours = date.getHours().toString().padStart(2, "0");
-          const minutes = date.getMinutes().toString().padStart(2, "0");
-          const seconds = date.getSeconds().toString().padStart(2, "0");
-          // console.log("hours: ", hours, "minutes: ", minutes);
-          if (horizontalTickCount === 6 || horizontalTickCount === 24)
-            return `${hours}`;
-          return `${hours}:${minutes}`;
-        },
-        // showMinLabel: true,
-        // showMaxLabel: true,
-        margin: 11.5,
-        hideOverlap: true,
-      },
-    },
-    yAxis: {
-      type: "value",
-      min: 0,
-      max: Math.max(...chartData.map((item) => Number(item.value[1]))) + 10, // ✅ Dynamic max
-      interval: Math.max(...chartData.map((item) => Number(item.value[1]))) / 10,
-      axisLine: {
-        show: true,
-      },
-      splitLine: {
-        show: true,
-        lineStyle: {
-          color: "yellow",
-          opacity: 0.1,
+          },
+          // showMinLabel: true,
+          // showMaxLabel: true,
+          margin: 11.5,
+          hideOverlap: true,
         },
       },
-      splitNumber: 10,
-    },
-    series: [
-      {
-        data: chartData.map((item) => ({
-          name: item.name,
-          value: [new Date(item.name).getTime(), item.value[1]], // ✅ Corrected Y-axis value
-        })),
-        type: "line",
-        symbolSize: 1,
-        lineStyle: {
-          color: "rgba(210, 25, 25, 1)",
+      yAxis: {
+        type: "value",
+        min: 0,
+        max: Math.max(...chartData.map((item) => Number(item.value[1]))) + 10, // ✅ Dynamic max
+        interval:
+          Math.max(...chartData.map((item) => Number(item.value[1]))) / 10,
+        axisLine: {
+          show: true,
         },
-        itemStyle: {
-          color: "rgba(125, 103, 103, 1)",
+        splitLine: {
+          show: true,
+          lineStyle: {
+            color: "yellow",
+            opacity: 0.1,
+          },
         },
+        splitNumber: 10,
       },
-    ],
-  }),
-  [filteredChartData]
-);
-
-
-
+      series: [
+        {
+          data: chartData.map((item) => ({
+            name: item.name,
+            value: [new Date(item.name).getTime(), item.value[1]], // ✅ Corrected Y-axis value
+          })),
+          type: "line",
+          symbolSize: 1,
+          lineStyle: {
+            color: "rgba(210, 25, 25, 1)",
+          },
+          itemStyle: {
+            color: "rgba(125, 103, 103, 1)",
+          },
+        },
+      ],
+    }),
+    [filteredChartData]
+  );
 
   return (
     <View>
-      
       {(checkWrite || checkWriteWithoutRsp) && (
         <View style={{ ...Layout.separators }}>
           <View style={[styles.container]}>
@@ -1287,227 +1326,269 @@ const chartOptions = useMemo(
           </View>
         </View>
       )}
-     
-      
-
 
       {checkRead && selectedMode === "Custom" && (
         <View>
           <View style={{ ...Layout.separators }}>
-          <View style={styles.inputContainer}>
-          <Text style={styles.label}>X1 Value</Text>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              value={x1 !== null && x1 !== undefined ? x1.toString() : ""}
-              onChangeText={(text) => handleInputChange(text, setX1)}
-              keyboardType="numeric"
-              placeholder="Enter X1"
-              style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-              editable={!isReading}
-            />
-          </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>X^1 coefficient</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={x1 !== null && x1 !== undefined ? x1.toString() : ""}
+                  onChangeText={(text) => handleInputChange(text, setX1)}
+                  keyboardType="numeric"
+                  placeholder="Enter X^1"
+                  style={[
+                    styles.input,
+                    isReading
+                      ? { borderColor: "#eeeeee" }
+                      : { borderColor: "black" },
+                  ]}
+                  editable={!isReading}
+                />
+              </View>
+            </View>
 
-        </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>X^2 coefficient</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={x2 !== null && x2 !== undefined ? x2.toString() : ""}
+                  onChangeText={(text) => handleInputChange(text, setX2)}
+                  keyboardType="numeric"
+                  placeholder="Enter X^2"
+                  style={[
+                    styles.input,
+                    isReading
+                      ? { borderColor: "#eeeeee" }
+                      : { borderColor: "black" },
+                  ]}
+                  editable={!isReading}
+                />
+              </View>
+            </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>X2 Value</Text>
-          <View style={styles.inputWrapper}>
-  <TextInput
-    value={x2 !== null && x2 !== undefined ? x2.toString() : ""}
-    onChangeText={(text) => handleInputChange(text, setX2)}
-    keyboardType="numeric"
-    placeholder="Enter X2"
-    style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-    editable={!isReading}
-  />
-</View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>X^3 coefficient</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={x3 !== null && x3 !== undefined ? x3.toString() : ""}
+                  onChangeText={(text) => handleInputChange(text, setX3)}
+                  keyboardType="numeric"
+                  placeholder="Enter X^3"
+                  style={[
+                    styles.input,
+                    isReading
+                      ? { borderColor: "#eeeeee" }
+                      : { borderColor: "black" },
+                  ]}
+                  editable={!isReading}
+                />
+              </View>
+            </View>
 
-        </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>X^4 coefficient</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={x4 !== null && x4 !== undefined ? x4.toString() : ""}
+                  onChangeText={(text) => handleInputChange(text, setX4)}
+                  keyboardType="numeric"
+                  placeholder="Enter X^4"
+                  style={[
+                    styles.input,
+                    isReading
+                      ? { borderColor: "#eeeeee" }
+                      : { borderColor: "black" },
+                  ]}
+                  editable={!isReading}
+                />
+              </View>
+            </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>X3 Value</Text>
-          <View style={styles.inputWrapper}>
-  <TextInput
-    value={x3 !== null && x3 !== undefined ? x3.toString() : ""}
-    onChangeText={(text) => handleInputChange(text, setX3)}
-    keyboardType="numeric"
-    placeholder="Enter X3"
-    style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-    editable={!isReading}
-  />
-</View>
+            {isDownloadEnabled && (
+              <View style={{ paddingTop: 10 }}>
+                {Boolean(fileName) && (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        const filePath = `${folderPath}/${fileName}.csv`;
 
-        </View>
+                        // Check if the file exists
+                        const fileExists = await RNFS.exists(filePath);
+                        if (!fileExists) {
+                          Alert.alert("Error", "File does not exist.");
+                          return;
+                        }
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>X4 Value</Text>
-          <View style={styles.inputWrapper}>
-  <TextInput
-    value={x4 !== null && x4 !== undefined ? x4.toString() : ""}
-    onChangeText={(text) => handleInputChange(text, setX4)}
-    keyboardType="numeric"
-    placeholder="Enter X4"
-    style={[styles.input, isReading ? { borderColor: "#eeeeee" } : { borderColor: "black" }]}
-    editable={!isReading}
-  />
-</View>
+                        const options = {
+                          url: `file://${filePath}`, // Correct format for local file
+                          type: "text/csv", // MIME type for CSV files
+                          failOnCancel: false, // Don't throw an error if the user cancels
+                        };
 
-            
-        </View>
-
-        {isDownloadEnabled && <View style={{ paddingTop: 10 }}>
-            {Boolean(fileName) && (
-             <TouchableOpacity
-             onPress={async () => {
-               try {
-                 const filePath = `${folderPath}/${fileName}.csv`;
-           
-                 // Check if the file exists
-                 const fileExists = await RNFS.exists(filePath);
-                 if (!fileExists) {
-                   Alert.alert("Error", "File does not exist.");
-                   return;
-                 }
-           
-                 const options = {
-                   url: `file://${filePath}`, // Correct format for local file
-                   type: 'text/csv', // MIME type for CSV files
-                   failOnCancel: false, // Don't throw an error if the user cancels
-                 };
-           
-                 await Share.open(options);
-               } catch (error) {
-                 console.error("Error sharing file:", error);
-                 Alert.alert("Error", "Could not share the file.");
-               }
-             }}
-             style={[styles.StartButton]}
-           >
-             <Text style={{ fontWeight: "bold" }}>Download File</Text>
-           </TouchableOpacity>
+                        await Share.open(options);
+                      } catch (error) {
+                        console.error("Error sharing file:", error);
+                        Alert.alert("Error", "Could not share the file.");
+                      }
+                    }}
+                    style={[styles.StartButton]}
+                  >
+                    <Text style={{ fontWeight: "bold" }}>Download File</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
-          </View>}
-
           </View>
           {/* Display the three buttons */}
           <View style={[styles.insideContainer]}>
-              <TouchableOpacity
-                onPress={handleCustomReading}
-                disabled={isReading}
-                style={[styles.StartButton]}
+            <TouchableOpacity
+              onPress={handleCustomReading}
+              disabled={isReading}
+              style={[styles.StartButton]}
+            >
+              <Text
+                style={[isReading ? { color: "gray" } : { fontWeight: "bold" }]}
               >
-                <Text
-                  style={[
-                    isReading ? { color: "gray" } : { fontWeight: "bold" },
-                  ]}
+                Read
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleStopReading}
+              style={[styles.StartButton]}
+              disabled={!isReading}
+            >
+              <Text
+                style={[
+                  !isReading ? { color: "gray" } : { fontWeight: "bold" },
+                ]}
+              >
+                Stop
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleShowFiles}
+              style={[styles.StartButton]}
+            >
+              <Text style={[{ fontWeight: "bold" }]}>Show Files</Text>
+            </TouchableOpacity>
+          </View>
+
+          {isReading && (
+            <View
+              style={{
+                paddingHorizontal: 5,
+              }}
+            >
+              {/* Display the three options */}
+              <View style={[styles.insideContainer]}>
+                <TouchableOpacity
+                  onPress={() => setHorizontalTickCount(0)}
+                  style={[styles.StartButton]}
+                  disabled={horizontalTickCount === 0}
                 >
-                  Read
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleStopReading}
-                style={[styles.StartButton]}
-                disabled={!isReading}
-              >
-                <Text
-                  style={[
-                    !isReading ? { color: "gray" } : { fontWeight: "bold" },
-                  ]}
+                  <Text
+                    style={[
+                      { fontWeight: "bold" },
+                      horizontalTickCount === 0
+                        ? { color: "gray" }
+                        : { color: "black" },
+                    ]}
+                  >
+                    Default
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setHorizontalTickCount(1)}
+                  style={[styles.StartButton]}
+                  disabled={horizontalTickCount === 1}
                 >
-                  Stop
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleShowFiles}
-                style={[styles.StartButton]}
-              >
-                <Text style={[{ fontWeight: "bold" }]}>Show Files</Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      { fontWeight: "bold" },
+                      horizontalTickCount === 1
+                        ? { color: "gray" }
+                        : { color: "black" },
+                    ]}
+                  >
+                    1h
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setHorizontalTickCount(6)}
+                  style={[styles.StartButton]}
+                  disabled={horizontalTickCount === 6}
+                >
+                  <Text
+                    style={[
+                      { fontWeight: "bold" },
+                      horizontalTickCount === 6
+                        ? { color: "gray" }
+                        : { color: "black" },
+                    ]}
+                  >
+                    6h
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setHorizontalTickCount(24)}
+                  style={[styles.StartButton]}
+                  disabled={horizontalTickCount === 24}
+                >
+                  <Text
+                    style={[
+                      { fontWeight: "bold" },
+                      horizontalTickCount === 24
+                        ? { color: "gray" }
+                        : { color: "black" },
+                    ]}
+                  >
+                    24h
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-               
-            </View>
+              {true && (
+                <View>
+                  <View style={[styles.container]}>
+                    <View>
+                      <View
+                        style={{
+                          alignContent: "center",
+                          alignItems: "center",
+                          flexDirection: "row",
+                        }}
+                      >
+                        <View style={{ flexDirection: "row" }}>
+                          <Text
+                            style={{
+                              fontWeight: "bold",
+                              paddingLeft: 12,
+                              paddingRight: 20,
+                            }}
+                          ></Text>
+                          {sensorData.length > 0 && (
+                            <View style={{ marginTop: 0 }}>
+                              <Text style={{ fontWeight: "bold" }}>
+                                🔋{" "}
+                                {sensorData[sensorData.length - 1].batteryLevel}
+                                %
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
 
-            {isReading && (
-                        <View
-                          style={{
-                            paddingHorizontal: 5,
-                          }}
-                        >
-                          {/* Display the three options */}
-                          <View style={[styles.insideContainer]}>
-                            <TouchableOpacity
-                              onPress={() => setHorizontalTickCount(0)}
-                              style={[styles.StartButton]}
-                              disabled={horizontalTickCount === 0}
-                            >
-                              <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 0 ? { color: "gray" } : { color: "black" }]}>Default</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => setHorizontalTickCount(1)}
-                              style={[styles.StartButton]}
-                              disabled={horizontalTickCount === 1}
-                            >
-                              <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 1 ? { color: "gray" } : { color: "black" }]}>1h</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => setHorizontalTickCount(6)}
-                              style={[styles.StartButton]}
-                              disabled={horizontalTickCount === 6}
-                            >
-                              <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 6 ? { color: "gray" } : { color: "black" }]}>6h</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => setHorizontalTickCount(24)}
-                              style={[styles.StartButton]}
-                              disabled={horizontalTickCount === 24}
-                            >
-                              <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 24 ? { color: "gray" } : { color: "black" }]}>24h</Text>
-                            </TouchableOpacity >
-                          </View>
-
-                          {true && (
-                            <View>
-                              <View style={[styles.container]}>
-                                <View>
-                                  <View
-                                    style={{
-                                      alignContent: "center",
-                                      alignItems: "center",
-                                      flexDirection: "row",
-                                    }}
-                                  >
-                                    <View style={{ flexDirection: "row" }}>
-                                      <Text
-                                        style={{
-                                          fontWeight: "bold",
-                                          paddingLeft: 12,
-                                          paddingRight: 20,
-                                        }}
-                                      >
-                                        
-                                      </Text>
-                                      {sensorData.length > 0 && (
-                                        <View style={{ marginTop: 0 }}>
-                                            <Text style={{ fontWeight: "bold" }}>🔋 {sensorData[sensorData.length - 1].batteryLevel}%</Text>
-                                        </View>
-                                      )}
-                                    </View>
-
-                                   
-                                    
-                                  </View>
-
-                                  <View
-                                    style={{
-                                      alignContent: "center",
-                                      alignItems: "center",
-                                      flexDirection: "row",
-                                    }}
-                                  >
-                                    
-
-                                    {/* <View style={{ flexDirection: "row" }}>
+                      <View
+                        style={{
+                          alignContent: "center",
+                          alignItems: "center",
+                          flexDirection: "row",
+                        }}
+                      >
+                        {/* <View style={{ flexDirection: "row" }}>
                                       <Text
                                         style={{
                                           fontWeight: "bold",
@@ -1518,31 +1599,27 @@ const chartOptions = useMemo(
                                         Data: {hexStringState}
                                       </Text>
                                     </View> */}
-                                    
-                                  </View>
-                                </View>
-                              </View>
-                              <View style={{ paddingLeft: 25, paddingBottom: 20 }}>
-                                <ServiceResponse responseArray={notifyResponse} />
-                              </View>
-                            </View>
-                          )}
-            
-                          {/* Chart component */}
-                          <View>
-                            <ChartComponent option={chartOptions} />
-                          </View>
-                        </View>
-                      )}
-{/* 
+                      </View>
+                    </View>
+                  </View>
+                  <View style={{ paddingLeft: 25, paddingBottom: 20 }}>
+                    <ServiceResponse responseArray={notifyResponse} />
+                  </View>
+                </View>
+              )}
+
+              {/* Chart component */}
+              <View>
+                <ChartComponent option={chartOptions} />
+              </View>
+            </View>
+          )}
+          {/* 
             <View>
                {isReading && <ChartComponent option={chartOptions} />}
             </View> */}
         </View>
       )}
-
-
-      
 
       {checkNotify && (
         <View>
