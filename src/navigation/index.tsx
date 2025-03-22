@@ -260,7 +260,7 @@ function BottomTabNavigator() {
               const BleManagerModule = NativeModules.BleManager;
               const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
               bleManagerEmitter.removeAllListeners('BleManagerDisconnectPeripheral');
-              navigation.goBack();
+              //navigation.goBack();
             };
 
             return (

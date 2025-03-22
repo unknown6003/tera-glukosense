@@ -1,35 +1,3 @@
-/*
- * Copyright (c) 2023, Texas Instruments Incorporated
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * *  Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * *  Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * *  Neither the name of Texas Instruments Incorporated nor the names of
- *    its contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
 import {
   View,
   NativeEventEmitter,
@@ -44,6 +12,7 @@ import {
   PermissionsAndroid,
   Linking,
 } from "react-native";
+import Share from "react-native-share";
 import { useFocusEffect } from "@react-navigation/native";
 import { Text } from "../../Themed";
 import React, {
@@ -80,7 +49,7 @@ import {
   DataZoomComponent,
 } from "echarts/components";
 import { Dimensions } from "react-native";
-import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
+import { activateKeepAwake, deactivateKeepAwake } from "expo-keep-awake";
 
 // Register extensions
 echarts.use([
@@ -136,7 +105,16 @@ type AutoResponse = {
   time: string;
 };
 
-const CharacteristicService: React.FC<Props> = ({
+type CustomResponse = {
+  data: string;
+  index: number;
+  batteryLevel: number;
+  readings: number[];
+  averages: number[];
+  time: string;
+};
+
+const CustomCharacteristicService: React.FC<Props> = ({
   peripheralId,
   serviceUuid: serviceUuid,
   serviceName: serviceName,
@@ -146,14 +124,10 @@ const CharacteristicService: React.FC<Props> = ({
   setSelectedMode,
   selectedMode,
 }) => {
-  console.log("CharacteristicService: peripheralId", peripheralId);
-  console.log("CharacteristicService: serviceUuid", serviceUuid);
-  console.log("CharacteristicService: char.properties", char.properties);
-
   useEffect(() => {
     // Activate keep awake when Auto mode is selected
-    if (selectedMode === 'Auto') {
-      console.log('Activating keep awake\n\n***************\n\n');
+    if (selectedMode === "Auto") {
+      console.log("Activating keep awake\n\n***************\n\n");
       activateKeepAwake();
     } else {
       // Deactivate keep awake when mode changes
@@ -173,6 +147,7 @@ const CharacteristicService: React.FC<Props> = ({
   let checkWriteWithoutRsp =
     Object.values(char.properties).indexOf("WriteWithoutResponse") > -1;
   let checkRead = Object.values(char.properties).indexOf("Read") > -1;
+  console.log("checkRead:" + checkRead);
 
   let propertiesString = "";
   if (checkRead) {
@@ -208,6 +183,7 @@ const CharacteristicService: React.FC<Props> = ({
   const [readResponse, setReadResponse] = useState<Response[]>([]);
   const [writeResponse, setWriteResponse] = useState<Response[]>([]);
   const [notifyResponse, setNotifyResponse] = useState<Response[]>([]);
+  const [hexStringState, setHexStringState] = useState<string>("");
 
   const writeTextInputRef = useRef({});
 
@@ -217,8 +193,11 @@ const CharacteristicService: React.FC<Props> = ({
   const [minutes, setMinutes] = useState<number>(1);
   const [seconds, setSeconds] = useState<number>(1);
   const [numReadings, setNumReadings] = useState<number>(60);
-  const [avgTime, setAvgTime] = useState<number>(5);
+  const [avgTime, setAvgTime] = useState<number>(0.05);
   const [isReading, setIsReading] = useState<boolean>(false);
+  const [latestReadingAverage, setLatestReadingAverage] = useState<
+    number | null
+  >(null);
   const [readingInterval, setReadingInterval] = useState<NodeJS.Timeout | null>(
     null
   );
@@ -228,6 +207,9 @@ const CharacteristicService: React.FC<Props> = ({
   const [autoReadResponses, setAutoReadResponses] = useState<AutoResponse[]>(
     []
   );
+  const [customReadResponses, setCustomReadResponses] = useState<
+    CustomResponse[]
+  >([]);
   const [arrayLength, setArrayLength] = useState<number>(0);
   const [horizontalTickCount, setHorizontalTickCount] = useState<number>(0);
   const [chartData, setChartData] = useState<
@@ -241,6 +223,58 @@ const CharacteristicService: React.FC<Props> = ({
   const [nextTime, setNextTime] = useState<Date | null>(null);
 
   // ************************* Auto Read Constants End ************************* //
+
+  // CUSTOM MODE STATES START //
+
+  const [isDownloadEnabled, setIsDownloadEnabled] = useState<boolean>(false);
+
+  const [x1, setX1] = useState<number>(0.001);
+  const [x2, setX2] = useState<number>(0.01);
+  const [x3, setX3] = useState<number>(0.1);
+  const [x4, setX4] = useState<number>(1);
+  const [sensorData, setSensorData] = useState<
+    {
+      packetIndex: number;
+      batteryLevel: number;
+      readings: number[];
+      avgReading: number[];
+      timeString: string;
+      dateString: string;
+      data: any;
+    }[]
+  >([]);
+
+  const [singleSensorData, setSingleSensorData] = useState<
+    {
+      packetIndex: number;
+      batteryLevel: number;
+      readings: number[];
+      avgReading: number[];
+      timeString: string;
+      dateString: string;
+      data: any;
+    }[]
+  >([]);
+
+  const handleInputChange = (
+    text: string,
+    setter: React.Dispatch<React.SetStateAction<number>>
+  ) => {
+    if (text === "") {
+      setter(0); // Default to 0 instead of null
+    } else {
+      const newValue = Number(text);
+      if (!isNaN(newValue)) {
+        setter(newValue);
+      }
+    }
+  };
+
+  const [collectedReadings, setCollectedReadings] = useState([]);
+  const collectionRef = useRef<
+    { index: number; battery: number; readings: number[]; time: string }[]
+  >([]);
+  const [isCollecting, setIsCollecting] = useState(false);
 
   // ************************* Start Folder Creation ************************** //
 
@@ -418,14 +452,7 @@ const CharacteristicService: React.FC<Props> = ({
 
     checkIfCharacteristicNameAvailable();
 
-    return () => {
-      // console.log('remove all listeners');
-      // bleManagerEmitter.removeAllListeners('BleManagerDidUpdateValueForCharacteristic');
-      // if (Object.values(char.properties).indexOf('Notify') > -1) {
-      //   //Cleaning up notification
-      //   BleManager.stopNotification(peripheralId, serviceUuid, char.characteristic);
-      // }
-    };
+    return () => {};
   }, [notificationSwitch, selectedFormat]);
 
   useEffect(() => {
@@ -561,11 +588,6 @@ const CharacteristicService: React.FC<Props> = ({
     [writeWithResponseSwitch, selectedFormat]
   );
 
-  const handleWriteWithResponseSwitch = useCallback(() => {
-    setWriteWithResponseSwitch((prev) => !prev);
-    console.log("handleWriteSwitch");
-  }, []);
-
   const handleWriteButton = useCallback(() => {
     writeTextInputRef[char.characteristic].focus();
   }, []);
@@ -574,266 +596,170 @@ const CharacteristicService: React.FC<Props> = ({
     setNotificationSwitch((prev) => !prev);
   }, [notificationSwitch]);
 
-  // ******************************** Manual Read ******************************** //
+  function generateDummyData(packetCount: number = 5): number[][] {
+    const dummyPackets: number[][] = [];
+
+    for (let i = 0; i < packetCount; i++) {
+      const packetIndex = i; // Simulating sequential packet index
+      const batteryLevel = Math.floor(Math.random() * 100); // Simulated battery level (0-100)
+
+      // Simulated 12-bit sensor readings (0-4095)
+      const readings = Array.from({ length: 4 }, () =>
+        Math.floor(Math.random() * 4096)
+      );
+
+      // Convert 12-bit readings into 9-byte format
+      const packet = [
+        (packetIndex >> 8) & 0xff, // Higher byte of index
+        packetIndex & 0xff, // Lower byte of index
+        batteryLevel, // Battery level
+        (readings[0] >> 4) & 0xff, // Reading 1 (upper part)
+        ((readings[0] & 0xf) << 4) | ((readings[1] >> 8) & 0xf), // Reading 1 (lower) + Reading 2 (upper)
+        readings[1] & 0xff, // Reading 2 (lower)
+        (readings[2] >> 4) & 0xff, // Reading 3 (upper part)
+        ((readings[2] & 0xf) << 4) | ((readings[3] >> 8) & 0xf), // Reading 3 (lower) + Reading 4 (upper)
+        readings[3] & 0xff, // Reading 4 (lower)
+      ];
+
+      dummyPackets.push(packet);
+    }
+
+    return dummyPackets;
+  }
+
   const handleReadButton = useCallback(() => {
-    console.log(
-      "handleReadButton selectedFormat on mode selectedMode",
-      selectedFormat,
-      selectedMode,
-      peripheralId,
-      serviceUuid,
-      serviceName
-    );
-    // Helper function to convert time to seconds
-    function timeToSeconds(timeString: string) {
-      const [hours, minutes, seconds] = timeString.split(":");
-      return (
-        parseInt(hours, 10) * 3600 +
-        parseInt(minutes, 10) * 60 +
-        parseInt(seconds, 10)
-      );
-    }
-    if (Object.values(char.properties).indexOf("Read") > -1) {
-      BleManager.read(peripheralId, serviceUuid, char.characteristic)
-        .then((data) => {
-          // Success code
-          let hexString = "";
-
-          if (selectedFormat == "UTF-8") {
-            hexString = Buffer.from(data).toString("utf8");
-            console.log("handleReadButton: converted to UTF-8 ", hexString);
-          } else if (selectedFormat === "Dec") {
-            hexString = data;
-            console.log("handleReadButton: converted to Dec ", hexString);
-          } else {
-            // must be hex
-            hexString = Buffer.from(data).toString("hex");
-            console.log("handleReadButton: converted to Hex ", hexString);
-          }
-
-          console.log("readResponse.length: " + readResponse.length);
-          if (selectedMode === "Manual") {
-            console.log("Selected Mode", selectedMode);
-            setReadResponse((prev) => [
-              {
-                data: hexString,
-                time: new Date().toTimeString().split(" ")[0],
-              },
-              ...prev.slice(0, 4),
-            ]);
-            console.log("manual read response: ", data, readResponse);
-          } else if (selectedMode === "Auto") {
-            console.log("Selected Mode", selectedMode);
-            setAutoReadResponses((prev) => [
-              ...prev,
-              {
-                data: parseInt(hexString.join(""), 10),
-                time: new Date().toISOString(), // Use toISOString() to include full date and time
-              },
-            ]);
-          }
-        })
-        .catch((error) => {
-          // Failure code
-          console.log("read error: ", error);
-        });
-    } else {
+    if (!char?.properties || !("Read" in char.properties)) {
       console.log("Read not supported by this characteristic");
-    }
-  }, [selectedFormat, selectedMode, autoReadResponses]);
-
-  // ******************************** Auto Read ******************************** //
-
-  const handleStartReading = () => {
-    console.log(
-      "Peripheral ID: ",
-      peripheralId,
-      serviceUuid,
-      char.characteristic
-    );
-
-    if (autoReadResponses.length > 0) {
-      setAutoReadResponses([]);
-    }
-    console.log("handleStartReading: ", minutes, seconds, numReadings);
-    if (numReadings === 0 || minutes === 0 || seconds === 0) {
-      console.log("handleStartReading: invalid input");
-      Alert.alert(
-        "Invalid Input",
-        "Please enter valid input",
-        [
-          {
-            text: "OK",
-            onPress: () => console.log("OK Pressed"),
-            style: "default",
-          },
-        ],
-        { cancelable: false }
-      );
       return;
     }
-    if (minutes * 60 < numReadings * seconds) {
-      console.log("handleStartReading: invalid input");
-      Alert.alert(
-        "Invalid Input",
-        "Number of readings does not fit in the given time interval. Please decrease the number of readings or increase the time interval.",
-        [
-          {
-            text: "OK",
-            onPress: () => console.log("OK Pressed"),
-            style: "default",
-          },
-        ],
-        { cancelable: false }
-      );
-      return;
-    }
-    setIsReading(true);
-    // Calculate the total time between sets in milliseconds
-    const intervalBetweenSets = minutes * 60 * 1000;
 
-    // Calculate the time between individual reads within each set in milliseconds
-    const intervalBetweenReads = seconds * 1000;
+    BleManager.read(peripheralId, serviceUuid, char.characteristic)
+      .then((data) => {
+        if (!data || data.length === 0) {
+          console.log("Received empty data from BLE read");
+          return;
+        }
 
-    // Calculate the total number of readings to perform within each set
-    const totalReadings = numReadings;
+        let hexString;
+        if (selectedFormat === "UTF-8") {
+          hexString = Buffer.from(data).toString("utf8");
+        } else if (selectedFormat === "Dec") {
+          hexString = data.toString();
+        } else {
+          hexString = Buffer.from(data).toString("hex");
+        }
 
-    // Initialize initialTime with the current time when the Read button is clicked
-    const currentTime = new Date();
-    setInitialTime(currentTime);
-    // Initialize nextTime with the time after 5 minutes from initialTime
-    const next = new Date(currentTime.getTime() + avgTime * 60 * 1000);
-    setNextTime(next);
-    console.log("Time now and next: ", currentTime, next);
+        console.log(
+          `handleReadButtonddd: converted to ${selectedFormat} ${selectedMode} `,
+          hexString
+        );
 
-    // Create a new file for the current set of readings
-    const dateString = currentTime.toISOString().slice(0, 10); // Extract date in YYYY-MM-DD format
-    const timeString = currentTime.toTimeString().slice(0, 8); // Extract time in HH:MM:SS format
-    const fileName = sanitizeFilename(
-      `${peripheralId}_${dateString}_${timeString}`
-    );
-    const deviceInfo = `${peripheralId},${serviceUuid},${serviceName}`;
-    const headerRow = "Index,data,time,date,avg";
-    const filePath = `${folderPath}/${fileName}.csv`;
-    setFileName(fileName);
-    console.log("File Path: ", filePath);
-    // check if the directory exists, and create it if it doesn't
-    RNFS.exists(folderPath)
-      .then((exists) => {
-        if (!exists) {
-          RNFS.mkdir(folderPath, { NSURLIsExcludedFromBackupKey: true });
+        if (selectedMode === "Custom") {
+          console.log("Custom mode selected");
+
+          // const dummyData = generateDummyData(5); // Simulate 5 packets
+          // const data = dummyData.flat();
+          data = data.flat();
+          console.log("data", data);
+          // Assuming multiple packets are received in `data`
+          const packets = chunkArray(data, 9); // Assuming each packet is 9 bytes long
+          console.log("packets", packets);
+          const processedPackets = packets.map((packet) => {
+            const packetIndex = (packet[0] << 8) | packet[1]; // 16-bit index
+            let batteryLevel = packet[2]; // 8-bit battery level
+            batteryLevel = (batteryLevel + 200) * 10;
+            // Extract 12-bit readings
+            const readings = [
+              ((packet[3] << 4) | (packet[4] >> 4)) & 0xfff,
+              (((packet[4] & 0xf) << 8) | packet[5]) & 0xfff,
+              ((packet[6] << 4) | (packet[7] >> 4)) & 0xfff,
+              (((packet[7] & 0xf) << 8) | packet[8]) & 0xfff,
+            ];
+
+            // Compute transformed readings
+            const avgReading = readings.map(
+              (v) => x1 * Math.pow(v, 3) + x2 * Math.pow(v, 2) + x3 * v + x4
+            );
+
+            // Compute average of transformed readings
+            // const avgReading =
+            //   transformedReadings.reduce((sum, val) => sum + val, 0) / transformedReadings.length;
+
+            const timeInString = new Date();
+            const dateString = timeInString.toLocaleDateString(); // Extract date in MM/DD/YYYY format
+            const timeString = timeInString.toTimeString().slice(0, 8);
+
+            return {
+              packetIndex,
+              batteryLevel,
+              readings,
+              avgReading,
+              timeString,
+              dateString,
+              data,
+            };
+          });
+
+          if (processedPackets.length > 0) {
+            // setLatestReadingAverage(processedPackets[processedPackets.length - 1].avgReading);
+          }
+          console.log("processedPackets", processedPackets);
+
+          setSensorData((prevData) => {
+            console.log("Previous sensorData:", prevData);
+            console.log("New processedPackets:", processedPackets);
+
+            const mergedData = [...prevData, ...processedPackets];
+
+            // Remove duplicates by using a Set based on packetIndex
+            const uniqueData = Array.from(
+              new Map(mergedData.map((p) => [p.packetIndex, p])).values()
+            );
+
+            console.log("Updated sensorData:", uniqueData);
+            return uniqueData.sort((a, b) => a.packetIndex - b.packetIndex);
+          });
+
+          setSingleSensorData(processedPackets);
         }
       })
       .catch((error) => {
-        console.error("Error checking directory:", error);
+        console.log("read error: ", error);
       });
+  }, [selectedFormat, selectedMode]);
 
-    RNFS.writeFile(filePath, `${deviceInfo}\n${headerRow}\n`, "utf8")
-      .then(() => {
-        console.log("CSV file created successfully:", filePath);
+  const handlePerMinuteRead = () => {
+    if (!char?.properties || !("Read" in char.properties)) {
+      console.log("Read not supported by this characteristic");
+      return;
+    }
+
+    BleManager.read(peripheralId, serviceUuid, char.characteristic)
+      .then((data) => {
+        if (!data || data.length === 0) {
+          console.log("Received empty data from BLE read");
+          return;
+        }
+
+        let hexString;
+        if (selectedFormat === "UTF-8") {
+          hexString = Buffer.from(data).toString("utf8");
+        } else if (selectedFormat === "Dec") {
+          hexString = data.toString();
+        } else {
+          hexString = Buffer.from(data).toString("hex");
+        }
+
+        console.log(
+          `handleReadButtonssss: converted to ${selectedFormat} ${selectedMode} `,
+          hexString
+        );
+        setHexStringState(hexString);
       })
       .catch((error) => {
-        console.error("Error creating CSV file:", error);
+        console.log("read error: ", error);
       });
-
-    // Function to perform a single set of readings
-    const performReadings = () => {
-      console.log("Performing readings");
-      // Loop to perform individual readings
-      for (let i = 0; i < totalReadings; i++) {
-        const timeout = setTimeout(() => {
-          // Perform the reading action here
-          console.log(`Reading ${i + 1}`);
-          handleReadButton();
-          console.log("Readings performed");
-        }, i * intervalBetweenReads);
-        setTimeouts((prevTimeouts) => [...prevTimeouts, timeout]); // Store the timeout reference
-      }
-    };
-
-    // Function to start the readings at the specified intervals
-    const startReadingIntervals = () => {
-      performReadings();
-
-      return setInterval(() => {
-        console.log("Starting next set of readings ");
-        performReadings();
-      }, intervalBetweenSets + intervalBetweenReads);
-    };
-
-    const interval = startReadingIntervals();
-    setReadingInterval(interval);
   };
-
-  // Calculate average and update chartData after every 5 minutes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (initialTime && nextTime) {
-        console.log(
-          "Checking time passed ....................",
-          initialTime,
-          nextTime
-        );
-        // Check if 5 minutes have passed
-        const currentTime = new Date();
-        console.log(
-          "Current Time:::::::::::: ",
-          currentTime,
-          currentTime >= nextTime
-        );
-        if (currentTime >= nextTime) {
-          console.log("\n\n\n\n\n5 minutes have passed");
-          // Calculate average of all elements in autoReadResponses
-          const sum = autoReadResponses.reduce(
-            (total, response) => total + response.data,
-            0
-          );
-          const average =
-            autoReadResponses.length > 0 ? sum / autoReadResponses.length : 0;
-
-          console.log("\n\n\n\nAverage: ", average);
-          console.log(
-            "length of autoReadResponses: ",
-            autoReadResponses.length
-          );
-
-          // Append average value to chartData with the time of nextTime
-          setChartData((prevChartData) => [
-            ...prevChartData,
-            {
-              name: nextTime.toISOString(),
-              value: [nextTime.toISOString(), average],
-            },
-          ]);
-          
-          setArrayLength(autoReadResponses.length);
-          // Append the current array to the file with the average value
-          appendCSVtoFile(folderPath, fileName, average);
-          // Empty the autoReadResponses array
-          setAutoReadResponses([]);
-
-          // Update initialTime to nextTime
-          setInitialTime(nextTime);
-
-          // Calculate the new value of nextTime by adding 5 minutes to the initialTime
-          const newNextTime = new Date(
-            nextTime.getTime() + avgTime * 60 * 1000
-          );
-          setNextTime(newNextTime);
-        }
-      }
-    }, 1000); // Check every second for the time passed
-    return () => clearInterval(interval);
-  }, [initialTime, nextTime, autoReadResponses]);
-
-  //  Use useEffect to log autoReadResponses whenever it changes
-  useEffect(() => {
-    console.log(
-      "autoReadResponses updated                 : ",
-      autoReadResponses,
-      autoReadResponses.length
-    );
-  }, [autoReadResponses]);
 
   // Filter the chartData based on the horizontalTickCount
   useEffect(() => {
@@ -875,62 +801,322 @@ const CharacteristicService: React.FC<Props> = ({
         // Update the chartData state with the filteredChartData
         setFilteredChartData(filteredChartData);
       }
-    }
-    else {
-      console.log("HorizontalTick count is 0 ******************************")
+    } else {
+      console.log("HorizontalTick count is 0 ******************************");
       setFilteredChartData(chartData);
-
     }
   }, [chartData, horizontalTickCount]);
 
-  // ************************************************ Stop and Save ************************************************
-  const generateCSVContent = () => {
-    // Generate data rows for each response
-    const dataRows = autoReadResponses.map((response, index) => {
-      const timeInString = new Date(response.time);
-      const dateString = timeInString.toLocaleDateString(); // Extract date in MM/DD/YYYY format
-      const timeString = timeInString.toTimeString().slice(0, 8); // Extract time in HH:MM:SS format
-      return `${arrayLength + index + 1},${response.data},${timeString},${dateString}`;
-    });
+  useEffect(() => {
+    appendCSVtoFile(folderPath, fileName);
+  }, [singleSensorData]);
 
-    const csvContent = [...dataRows].join("\n");
-    console.log("CSV Content: ", csvContent);
-    return csvContent;
+  const retrieveAndSetSensorData = async (filePath: string) => {
+    try {
+      const fileExists = await RNFS.exists(filePath);
+      if (!fileExists) {
+        console.log("CSV file does not exist yet.");
+        return;
+      }
+
+      const csvContent = await RNFS.readFile(filePath, "utf8");
+      console.log("Retrieved CSV Content: ", csvContent);
+
+      // Split lines and remove first two rows (headers)
+      const lines = csvContent.trim().split("\n").slice(2); // Skip first 2 rows
+
+      const parsedData = lines.map((line) => {
+        const [
+          packetIndex,
+          batteryLevel,
+          reading1,
+          reading2,
+          reading3,
+          reading4,
+          calReading1,
+          calReadin2,
+          calReading3,
+          calReading4,
+          avgReading,
+          time,
+          date,
+          data,
+        ] = line.split(",");
+
+        return {
+          packetIndex: Number(packetIndex),
+          batteryLevel: Number(batteryLevel),
+          readings: [
+            Number(reading1),
+            Number(reading2),
+            Number(reading3),
+            Number(reading4),
+          ],
+          avgReading: [
+            Number(calReading1),
+            Number(calReadin2),
+            Number(calReading3),
+            Number(calReading4),
+          ],
+          timeString: time,
+          dateString: date,
+          data,
+        };
+      });
+
+      console.log("Parsed CSV Data:", parsedData);
+      setSensorData(parsedData); // Store in state
+    } catch (error) {
+      console.error("Error reading CSV file:", error);
+    }
   };
 
-  const appendCSVtoFile = async (folderPath: string, fileName: string, average: number | null = null) => {
+  // Helper function to split data into packets of fixed size
+  const chunkArray = (array: number[], size: number): number[][] => {
+    const chunks: number[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
+  };
+
+  // Function to update chart data at 1.5 min intervals
+  //  useEffect(() => {
+  //   if (!sensorData || sensorData.length === 0) return; // Ensure sensorData exists
+
+  //   const newChartData = sensorData.map((data, i) => ({
+  //     time: new Date(Date.now() - (sensorData.length - 1 - i) * 90 * 1000), // Correct order
+  //     avgReading: data.avgReading,
+  //   }));
+
+  //   setChartData(
+  //     newChartData.map((item) => ({
+  //       name: item.time.toISOString(), // Convert Date to string
+  //       value: [item.avgReading], // Wrap avgReading in an array
+  //     }))
+  //   );
+  // }, [sensorData]); // Run only when sensorData updates
+
+  // useEffect(() => {
+  //   console.table("sensorData",sensorData);
+  //   if (!sensorData || sensorData.length === 0) return; // Ensure sensorData exists
+  //   console.table(sensorData);
+  //   const newChartData = sensorData.map((data, i) => {
+  //     const timestamp = Date.now() - (sensorData.length - 1 - i) * 90 * 1000; // Adjusted time calculation
+  //     return {
+  //       name: new Date(timestamp).toISOString(), // Convert Date to ISO format
+  //       value: [timestamp, data.avgReading], // Wrap timestamp & avgReading in an array
+  //     };
+  //   });
+
+  //   setChartData(newChartData);
+  // }, [sensorData]);
+
+  useEffect(() => {
+    console.log("🚀 useEffect triggered with sensorData:", sensorData);
+
+    if (!sensorData || sensorData.length === 0) return;
+
+    console.log("📊 Mapping sensorData to chartData");
+    const newChartData = sensorData.flatMap((data, i) => {
+      return data.avgReading.map((reading, j) => {
+        const timestamp =
+          Date.now() - ((sensorData.length - 1 - i) * 4 + (3 - j)) * 90 * 1000;
+        return {
+          name: new Date(timestamp).toISOString(),
+          value: [timestamp, reading],
+        };
+      });
+    });
+
+    console.log("✅ Setting newChartData:", newChartData);
+    setChartData(newChartData);
+  }, [sensorData]); // Ensure sensorData is in dependency array
+
+  const handleCustomReading = () => {
+    // if (x1 === 0 || x2 === 0 || x3 === 0 || x4 === 0) {
+    //   Alert.alert("Invalid Input", "Please enter valid input");
+    //   return;
+    // }
+
+    setIsReading(true);
+
+    // Define the listening schedule
+    // const intervalBetweenSets = 6 * 60 * 1000; // 6 minutes
+    // const listenDuration = 10 * 1000; // 10 seconds
+    // const readFrequency = 100; // Read every 100ms within the listen window
+
+    // ⏳ **Reduced Interval & Duration for Faster Testing**
+    // const intervalBetweenSets = 15000; // ⏳ **Every 2 seconds instead of 6 minutes**
+    // const listenDuration = 1000; // ⏳ **Listen for 5 seconds instead of 10 seconds**
+    // const readFrequency = 100; // Read every 100ms
+
+    const intervalBetweenSets = 6 * 60 * 1000; // 6 minutes
+    const listenDuration = 1000; // 10 seconds
+    const readFrequency = 100; // Read every 100ms within the listen window
+
+    // Set initial timestamps
+    const currentTime = new Date();
+    setInitialTime(currentTime);
+
+    const next = new Date(currentTime.getTime() + avgTime * 60 * 1000);
+    setNextTime(next);
+    console.log("Time now and next: ", currentTime, next);
+
+    // Prepare CSV file
+    const dateString = currentTime.toISOString().slice(0, 10);
+    const timeString = currentTime.toTimeString().slice(0, 8);
+    //const fileName = sanitizeFilename(`${peripheralId}_${dateString}_${timeString}`);
+    const fileName = sanitizeFilename(`${peripheralId}_${"myblefile"}`); //"myblefile";
+    const filePath = `${folderPath}/${fileName}.csv`;
+    setFileName(fileName);
+
+    RNFS.exists(folderPath).then((exists) => {
+      if (!exists) {
+        RNFS.mkdir(folderPath, { NSURLIsExcludedFromBackupKey: true });
+      }
+    });
+
+    // Check if file exists before creating and adding headers
+    RNFS.exists(filePath).then((fileExists) => {
+      if (!fileExists) {
+        // Create file with headers only if it doesn't exist
+        const headerContent = `${peripheralId},${serviceUuid},${serviceName}\npacketIndex,batteryLevel,reading 1,reading 2,reading 3,reading 4,calculated reading 1,calculated reading 2,calculated reading 3,calculated reading 4,time,date,data\n`;
+
+        RNFS.writeFile(filePath, headerContent, "utf8")
+          .then(() => console.log("CSV file created:", filePath))
+          .catch((error) => console.error("Error creating CSV file:", error));
+      } else {
+        console.log("CSV file already exists, not adding headers.");
+      }
+    });
+
+    retrieveAndSetSensorData(filePath);
+
+    // Function to perform continuous readings for 10 seconds
+    const performReadings = () => {
+      console.log("⏳ Listening for 10 seconds...");
+      const startTime = Date.now();
+
+      const readLoop = setInterval(() => {
+        if (Date.now() - startTime >= listenDuration) {
+          clearInterval(readLoop);
+          console.log("🛑 Stopping readings after 10 seconds.");
+        } else {
+          handleReadButton();
+        }
+      }, readFrequency);
+
+      setTimeouts((prevTimeouts) => [...prevTimeouts, readLoop]); // Store timeout reference
+    };
+
+    const performReadingsEveryMinute = () => {
+      console.log("⏳ Listening for 10 seconds...");
+      const startTime = Date.now();
+
+      const readLoop = setInterval(() => {
+        if (Date.now() - startTime >= listenDuration) {
+          clearInterval(readLoop);
+          console.log("🛑 Stopping readings after 10 seconds.");
+        } else {
+          handlePerMinuteRead();
+        }
+      }, readFrequency);
+
+      setTimeouts((prevTimeouts) => [...prevTimeouts, readLoop]); // Store timeout reference
+    };
+
+    // Schedule the first listening session exactly when 'nextTime' arrives
+    const firstReadDelay = 0;
+
+    setTimeout(() => {
+      performReadings();
+      const interval = setInterval(() => {
+        performReadings();
+      }, intervalBetweenSets);
+      setReadingInterval(interval);
+    }, firstReadDelay);
+
+    // setTimeout(() => {
+    //   performReadingsEveryMinute();
+    //   setInterval(() => {
+    //     performReadingsEveryMinute();
+    //   }, 6000);
+    // }, firstReadDelay);
+  };
+
+  // ************************************************ Stop and Save ************************************************
+  const generateCSVContent = (existingPacketIndexes: Set<string>) => {
+    // Generate new data rows, filtering out duplicate packetIndexes
+    const dataRows = singleSensorData
+      .filter(
+        (response) =>
+          !existingPacketIndexes.has(String(response.packetIndex).trim())
+      ) // Ensure correct filtering
+      .map((response) => {
+        const timeInString = new Date();
+        const dateString = timeInString.toLocaleDateString(); // MM/DD/YYYY format
+        const timeString = timeInString.toTimeString().slice(0, 8); // HH:MM:SS format
+
+        return `${response.packetIndex},${response.batteryLevel},${response.readings},${response.avgReading},${timeString},${dateString},${response.data}`;
+      });
+
+    if (dataRows.length === 0) {
+      console.log("No new data to append.");
+      return "";
+    }
+
+    return dataRows.join("\n");
+  };
+
+  const appendCSVtoFile = async (
+    folderPath: string,
+    fileName: string,
+    average: number | null = null
+  ) => {
     try {
-      // Check if the directory exists, and create it if it doesn't
+      // Ensure the directory exists
       const directoryExists = await RNFS.exists(folderPath);
-      console.log("Directory exists:", directoryExists);
       if (!directoryExists) {
         await RNFS.mkdir(folderPath, {
           NSURLIsExcludedFromBackupKey: true,
-        }); // Create directory with option to exclude from backup
+        });
       }
 
-
-      let csvContent = generateCSVContent();
-      // Generate CSV content
-      if (average !== null) {
-        csvContent = csvContent + `,${average}`;
-      }
-      else {
-        csvContent = csvContent;
-      }
-
-      // Append CSV content to file
       const filePath = `${folderPath}/${fileName}.csv`;
-      console.log("File Path: ", filePath);
-      //check if file exists
+      let existingPacketIndexes = new Set<string>();
+
+      // Check if the file exists and read its content
       const fileExists = await RNFS.exists(filePath);
-      console.log("File exists:", fileExists);
       if (fileExists) {
-        await RNFS.appendFile(filePath, csvContent + "\n", "utf8");
-      } else {
-        console.log("File does not exist! Couldn't append to file.");
+        const existingContent = await RNFS.readFile(filePath, "utf8");
+
+        // Extract packetIndex from each line
+        const lines = existingContent
+          .split("\n")
+          .filter((line) => line.trim() !== "");
+        for (const line of lines) {
+          const columns = line.split(",");
+          if (columns.length > 0) {
+            existingPacketIndexes.add(columns[0].trim()); // Store packetIndex as string
+          }
+        }
+      }
+      console.log("Existing Packet Indexes:", existingPacketIndexes);
+
+      // Generate CSV content with filtered data
+      let csvContent = generateCSVContent(existingPacketIndexes);
+      if (!csvContent) {
+        console.log("No new data to append.");
+        return;
       }
 
+      if (average !== null) {
+        csvContent += `,${average}`;
+      }
+
+      // Append new data to file
+      await RNFS.appendFile(filePath, csvContent + "\n", "utf8");
       console.log("CSV file appended successfully:", filePath);
     } catch (error) {
       console.error("Error appending to CSV file:", error);
@@ -943,23 +1129,18 @@ const CharacteristicService: React.FC<Props> = ({
   };
 
   const handleStopReading = () => {
-    console.log(
-      "handleStopReading",
-      autoReadResponses,
-      autoReadResponses.length
-    );
-
     // append the remaining data to the file
-    appendCSVtoFile(folderPath, fileName);
+    //appendCSVtoFile(folderPath, fileName);
 
     setIsReading(false);
-    setAutoReadResponses([]);
+    setCustomReadResponses([]);
     setChartData([]);
     setHorizontalTickCount(0);
     setArrayLength(0);
     // reset initial and next time
     setInitialTime(null);
     setNextTime(null);
+    setIsDownloadEnabled(true);
 
     // Clear the timeouts
     timeouts.forEach((timeout) => clearTimeout(timeout));
@@ -993,34 +1174,6 @@ const CharacteristicService: React.FC<Props> = ({
     );
   }, [folderPath]);
 
-  // *********************************************** Graph Starts *********************************************** //
-
-  // Find the minimum value in your data array
-  let minData = Math.min(
-    ...filteredChartData.map((dataPoint) => Number(dataPoint.value[1]))
-  );
-  let minYValue = minData - 20 > 0 ? Math.round(minData / 10) * 10 - 20 : 20; // Round down to the nearest 10
-
-  // Calculate the maximum value to ensure that the interval between each label is 10
-  let maxData = Math.max(
-    ...filteredChartData.map((dataPoint) => Number(dataPoint.value[1]))
-  );
-  let maxYValue = Math.round(maxData / 10) * 10 + 10;
-
-  // if (maxYValue - minYValue < 50) {
-  //   maxYValue = minYValue + 100;
-  // }
-
-  const range = maxYValue - minYValue;
-  const yAxisInterval = range > 50 ? Math.ceil(range / 10) : 5;
-
-  console.log(
-    "Chart Data min and max: ",
-    minYValue,
-    maxYValue,
-    (maxYValue - minYValue) / 10
-  );
-  // Create the chart options
   const chartOptions = useMemo(
     () => ({
       backgroundColor: "#333",
@@ -1030,21 +1183,39 @@ const CharacteristicService: React.FC<Props> = ({
         left: "2%",
         right: "5%",
         containLabel: true,
-        
       },
       dataZoom: {
         start: 0,
         type: "slider",
       },
+      // xAxis: {
+      //   type: "time",
+      //   splitNumber: 3,
+      //   splitLine: {
+      //     show: true,
+      //     lineStyle: {
+      //       color: "yellow",
+      //       opacity: 0.1,
+      //     },
+      //   },
+      //   axisLabel: {
+      //     formatter: (value: number) => {
+      //       const date = new Date(value);
+      //       return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+      //     },
+      //     margin: 11.5,
+      //     hideOverlap: true,
+      //   },
+      // },
       xAxis: {
         type: "time",
         splitNumber: 3,
         splitLine: {
           show: true,
           lineStyle: {
-            color: 'yellow', 
-            opacity: 0.1,    
-          }
+            color: "yellow",
+            opacity: 0.1,
+          },
         },
         axisLabel: {
           formatter: function (value: any, index: any, name: any) {
@@ -1074,24 +1245,28 @@ const CharacteristicService: React.FC<Props> = ({
       },
       yAxis: {
         type: "value",
-        min: minYValue,
-        max: maxYValue,
-        interval: yAxisInterval,
+        min: 0,
+        max: Math.max(...chartData.map((item) => Number(item.value[1]))) + 10, // ✅ Dynamic max
+        interval:
+          Math.max(...chartData.map((item) => Number(item.value[1]))) / 10,
         axisLine: {
-          show: true
+          show: true,
         },
         splitLine: {
           show: true,
           lineStyle: {
-            color: 'yellow', 
-            opacity: 0.1,    
-          }
+            color: "yellow",
+            opacity: 0.1,
+          },
         },
         splitNumber: 10,
       },
       series: [
         {
-          data: filteredChartData,
+          data: chartData.map((item) => ({
+            name: item.name,
+            value: [new Date(item.name).getTime(), item.value[1]], // ✅ Corrected Y-axis value
+          })),
           type: "line",
           symbolSize: 1,
           lineStyle: {
@@ -1106,34 +1281,8 @@ const CharacteristicService: React.FC<Props> = ({
     [filteredChartData]
   );
 
-  // *********************************************** Graph Ends *********************************************** //
-
   return (
     <View>
-      {!(selectedMode === "Auto") && (
-        <View style={[styles.charContainer]}>
-          <Text style={{ fontWeight: "bold", fontSize: charNameSize }}>
-            {charName}
-          </Text>
-          <View
-            style={[
-              {
-                alignItems: "flex-start",
-                paddingTop: 10,
-                paddingLeft: 10,
-                flexDirection: "column",
-              },
-            ]}
-          >
-            {charName != charUuidString && (
-              <Text style={[{}]}>UUID: {charUuidString}</Text>
-            )}
-            <Text style={[{ fontWeight: "200", paddingTop: 5 }]}>
-              Properties: {propertiesString}
-            </Text>
-          </View>
-        </View>
-      )}
       {(checkWrite || checkWriteWithoutRsp) && (
         <View style={{ ...Layout.separators }}>
           <View style={[styles.container]}>
@@ -1177,129 +1326,18 @@ const CharacteristicService: React.FC<Props> = ({
           </View>
         </View>
       )}
-      {checkRead && selectedMode === "Manual" && (
-        <View style={{ ...Layout.separators }}>
-          <View style={[styles.container]}>
-            <View>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flex: 1,
-                  paddingBottom: 10,
-                }}
-              >
-                <TouchableOpacity
-                  onPress={handleReadButton}
-                  style={[styles.readWriteButton]}
-                >
-                  <Text style={[{ fontWeight: "bold" }]}>Read</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-          <View style={{ paddingLeft: 25, paddingBottom: 20 }}>
-            <ServiceResponse responseArray={readResponse} />
-          </View>
-        </View>
-      )}
-      {checkRead && selectedMode === "Auto" && (
+
+      {checkRead && selectedMode === "Custom" && (
         <View>
           <View style={{ ...Layout.separators }}>
-            {/* Display the three inputs */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Sets Interval (Min) </Text>
+              <Text style={styles.label}>X^1 coefficient</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  value={minutes === 0 ? "" : minutes.toString()}
-                  onChangeText={(text) => {
-                    const newValue = parseInt(text);
-                    if (!isNaN(newValue) || text === "0") {
-                      setMinutes(newValue);
-                    } else {
-                      setMinutes(0);
-                    }
-                  }}
+                  value={x1 !== null && x1 !== undefined ? x1.toString() : ""}
+                  onChangeText={(text) => handleInputChange(text, setX1)}
                   keyboardType="numeric"
-                  placeholder={minutes === 0 ? "min" : ""}
-                  style={[
-                    styles.input,
-                    isReading
-                      ? { borderColor: "#eeeeee" }
-                      : { borderColor: "black" },
-                  ]}
-                  editable={!isReading}
-                />
-              </View>
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Reads Interval (Sec)</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  value={seconds === 0 ? "" : seconds.toString()}
-                  onChangeText={(text) => {
-                    const newValue = parseInt(text);
-                    if (!isNaN(newValue) || text === "0") {
-                      setSeconds(newValue);
-                    } else {
-                      setSeconds(0);
-                    }
-                  }}
-                  keyboardType="numeric"
-                  placeholder={seconds === 0 ? "sec" : ""}
-                  style={[
-                    styles.input,
-                    isReading
-                      ? { borderColor: "#eeeeee" }
-                      : { borderColor: "black" },
-                  ]}
-                  editable={!isReading}
-                />
-              </View>
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Reads per Set </Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  value={numReadings === 0 ? "" : numReadings.toString()}
-                  onChangeText={(text) => {
-                    if (text === "") {
-                      setNumReadings(0); // Set to 0 only when the input is empty
-                    } else {
-                      const newValue = parseInt(text);
-                      if (!isNaN(newValue) || text === "0") {
-                        setNumReadings(newValue);
-                      }
-                    }
-                  }}
-                  keyboardType="numeric"
-                  placeholder={numReadings === 0 ? "int" : ""}
-                  style={[
-                    styles.input,
-                    isReading
-                      ? { borderColor: "#eeeeee" }
-                      : { borderColor: "black" },
-                  ]}
-                  editable={!isReading}
-                />
-              </View>
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Graph avg time (Min) </Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  value={avgTime === 0 ? "" : avgTime.toString()}
-                  onChangeText={(text) => {
-                    if (text === "") {
-                      setAvgTime(0); // Set to 0 only when the input is empty
-                    } else {
-                      const newValue = parseInt(text);
-                      if (!isNaN(newValue) || text === "0") {
-                        setAvgTime(newValue);
-                      }
-                    }
-                  }}
-                  keyboardType="numeric"
-                  placeholder={numReadings === 0 ? "int" : ""}
+                  placeholder="Enter X^1"
                   style={[
                     styles.input,
                     isReading
@@ -1311,45 +1349,133 @@ const CharacteristicService: React.FC<Props> = ({
               </View>
             </View>
 
-            {/* Display the three buttons */}
-            <View style={[styles.insideContainer]}>
-              <TouchableOpacity
-                onPress={handleStartReading}
-                disabled={isReading}
-                style={[styles.StartButton]}
-              >
-                <Text
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>X^2 coefficient</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={x2 !== null && x2 !== undefined ? x2.toString() : ""}
+                  onChangeText={(text) => handleInputChange(text, setX2)}
+                  keyboardType="numeric"
+                  placeholder="Enter X^2"
                   style={[
-                    isReading ? { color: "gray" } : { fontWeight: "bold" },
+                    styles.input,
+                    isReading
+                      ? { borderColor: "#eeeeee" }
+                      : { borderColor: "black" },
                   ]}
-                >
-                  Read
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleStopReading}
-                style={[styles.StartButton]}
-                disabled={!isReading}
-              >
-                <Text
-                  style={[
-                    !isReading ? { color: "gray" } : { fontWeight: "bold" },
-                  ]}
-                >
-                  Stop
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleShowFiles}
-                style={[styles.StartButton]}
-              >
-                <Text style={[{ fontWeight: "bold" }]}>Show Files</Text>
-              </TouchableOpacity>
+                  editable={!isReading}
+                />
+              </View>
             </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>X^3 coefficient</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={x3 !== null && x3 !== undefined ? x3.toString() : ""}
+                  onChangeText={(text) => handleInputChange(text, setX3)}
+                  keyboardType="numeric"
+                  placeholder="Enter X^3"
+                  style={[
+                    styles.input,
+                    isReading
+                      ? { borderColor: "#eeeeee" }
+                      : { borderColor: "black" },
+                  ]}
+                  editable={!isReading}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>X^4 coefficient</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={x4 !== null && x4 !== undefined ? x4.toString() : ""}
+                  onChangeText={(text) => handleInputChange(text, setX4)}
+                  keyboardType="numeric"
+                  placeholder="Enter X^4"
+                  style={[
+                    styles.input,
+                    isReading
+                      ? { borderColor: "#eeeeee" }
+                      : { borderColor: "black" },
+                  ]}
+                  editable={!isReading}
+                />
+              </View>
+            </View>
+
+            {isDownloadEnabled && (
+              <View style={{ paddingTop: 10 }}>
+                {Boolean(fileName) && (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        const filePath = `${folderPath}/${fileName}.csv`;
+
+                        // Check if the file exists
+                        const fileExists = await RNFS.exists(filePath);
+                        if (!fileExists) {
+                          Alert.alert("Error", "File does not exist.");
+                          return;
+                        }
+
+                        const options = {
+                          url: `file://${filePath}`, // Correct format for local file
+                          type: "text/csv", // MIME type for CSV files
+                          failOnCancel: false, // Don't throw an error if the user cancels
+                        };
+
+                        await Share.open(options);
+                      } catch (error) {
+                        console.error("Error sharing file:", error);
+                        Alert.alert("Error", "Could not share the file.");
+                      }
+                    }}
+                    style={[styles.StartButton]}
+                  >
+                    <Text style={{ fontWeight: "bold" }}>Download File</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+          {/* Display the three buttons */}
+          <View style={[styles.insideContainer]}>
+            <TouchableOpacity
+              onPress={handleCustomReading}
+              disabled={isReading}
+              style={[styles.StartButton]}
+            >
+              <Text
+                style={[isReading ? { color: "gray" } : { fontWeight: "bold" }]}
+              >
+                Read
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleStopReading}
+              style={[styles.StartButton]}
+              disabled={!isReading}
+            >
+              <Text
+                style={[
+                  !isReading ? { color: "gray" } : { fontWeight: "bold" },
+                ]}
+              >
+                Stop
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleShowFiles}
+              style={[styles.StartButton]}
+            >
+              <Text style={[{ fontWeight: "bold" }]}>Show Files</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Display the graph */}
           {isReading && (
             <View
               style={{
@@ -1363,30 +1489,124 @@ const CharacteristicService: React.FC<Props> = ({
                   style={[styles.StartButton]}
                   disabled={horizontalTickCount === 0}
                 >
-                  <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 0 ? { color: "gray" } : { color: "black" }]}>Default</Text>
+                  <Text
+                    style={[
+                      { fontWeight: "bold" },
+                      horizontalTickCount === 0
+                        ? { color: "gray" }
+                        : { color: "black" },
+                    ]}
+                  >
+                    Default
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setHorizontalTickCount(1)}
                   style={[styles.StartButton]}
                   disabled={horizontalTickCount === 1}
                 >
-                  <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 1 ? { color: "gray" } : { color: "black" }]}>1h</Text>
+                  <Text
+                    style={[
+                      { fontWeight: "bold" },
+                      horizontalTickCount === 1
+                        ? { color: "gray" }
+                        : { color: "black" },
+                    ]}
+                  >
+                    1h
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setHorizontalTickCount(6)}
                   style={[styles.StartButton]}
                   disabled={horizontalTickCount === 6}
                 >
-                  <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 6 ? { color: "gray" } : { color: "black" }]}>6h</Text>
+                  <Text
+                    style={[
+                      { fontWeight: "bold" },
+                      horizontalTickCount === 6
+                        ? { color: "gray" }
+                        : { color: "black" },
+                    ]}
+                  >
+                    6h
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setHorizontalTickCount(24)}
                   style={[styles.StartButton]}
                   disabled={horizontalTickCount === 24}
                 >
-                  <Text style={[{ fontWeight: "bold" }, horizontalTickCount === 24 ? { color: "gray" } : { color: "black" }]}>24h</Text>
-                </TouchableOpacity >
+                  <Text
+                    style={[
+                      { fontWeight: "bold" },
+                      horizontalTickCount === 24
+                        ? { color: "gray" }
+                        : { color: "black" },
+                    ]}
+                  >
+                    24h
+                  </Text>
+                </TouchableOpacity>
               </View>
+
+              {true && (
+                <View>
+                  <View style={[styles.container]}>
+                    <View>
+                      <View
+                        style={{
+                          alignContent: "center",
+                          alignItems: "center",
+                          flexDirection: "row",
+                        }}
+                      >
+                        <View style={{ flexDirection: "row" }}>
+                          <Text
+                            style={{
+                              fontWeight: "bold",
+                              paddingLeft: 12,
+                              paddingRight: 20,
+                            }}
+                          ></Text>
+                          {sensorData.length > 0 && (
+                            <View style={{ marginTop: 0 }}>
+                              <Text style={{ fontWeight: "bold" }}>
+                                🔋{" "}
+                                {sensorData[sensorData.length - 1].batteryLevel}
+                                %
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+
+                      <View
+                        style={{
+                          alignContent: "center",
+                          alignItems: "center",
+                          flexDirection: "row",
+                        }}
+                      >
+                        {/* <View style={{ flexDirection: "row" }}>
+                                      <Text
+                                        style={{
+                                          fontWeight: "bold",
+                                          paddingLeft: 12,
+                                          paddingRight: 20,
+                                        }}
+                                      >
+                                        Data: {hexStringState}
+                                      </Text>
+                                    </View> */}
+                      </View>
+                    </View>
+                  </View>
+                  <View style={{ paddingLeft: 25, paddingBottom: 20 }}>
+                    <ServiceResponse responseArray={notifyResponse} />
+                  </View>
+                </View>
+              )}
 
               {/* Chart component */}
               <View>
@@ -1394,6 +1614,10 @@ const CharacteristicService: React.FC<Props> = ({
               </View>
             </View>
           )}
+          {/* 
+            <View>
+               {isReading && <ChartComponent option={chartOptions} />}
+            </View> */}
         </View>
       )}
 
@@ -1497,7 +1721,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.lightGray,
     borderWidth: 0,
     borderBottomWidth: 0,
-    marginRight: "10%", // Add margin-right for spacing between buttons
+    marginRight: "5%", // Add margin-right for spacing between buttons
     marginLeft: "5%", // Add margin-left for spacing between buttons
   },
   inputContainer: {
@@ -1535,4 +1759,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CharacteristicService;
+export default CustomCharacteristicService;

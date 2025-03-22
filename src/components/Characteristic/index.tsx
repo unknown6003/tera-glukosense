@@ -60,6 +60,10 @@ const Characteristic: React.FC<Props> = ({
       label: 'Manual',
       value: 'Manual',
     },
+    {
+      label: 'Custom',
+      value: 'Custom',
+    },
   ];
   
 

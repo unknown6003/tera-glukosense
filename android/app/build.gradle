@@ -149,6 +149,7 @@ android {
         versionCode 22
         versionName "1.3.8"
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+        vectorDrawables.useSupportLibrary = true
 
         if (isNewArchitectureEnabled()) {
             // We configure the NDK build only if you decide to opt-in for the New Architecture.
@@ -296,11 +297,19 @@ android {
     }
 }
 
+
+tasks.whenTaskAdded { task ->
+    if (task.name == 'compressReleaseAssets') {
+        task.dependsOn('copyReleaseBundledJs')
+    }
+}
+
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
     implementation project(':react-native-fs')
     //noinspection GradleDynamicVersion
     implementation "com.facebook.react:react-native:+"  // From node_modules
+    implementation 'com.google.android.material:material:1.5.0-alpha02'
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
